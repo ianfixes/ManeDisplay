@@ -9,11 +9,11 @@
 #include <Wire.h>
 
 // top-level settings
-const int morseWPM        = 15;
+const int morseWPM        = 10;
 const int i2cSlaveAddress = 9;  // this must agree with BinkySlaveDemo!
 
 // settings calculated from top-level settings
-const int lenDit            = 60 * 1000 / (50 * morseWPM); // https://morsecode.world/international/timing.html in milliseconds
+const int lenDit            = int(60.0 * 1000 / (50.0 * morseWPM)); // https://morsecode.world/international/timing.html in milliseconds
 const int lenDah            = lenDit * 3;
 const int lenSpaceIntraChar = lenDit;
 const int lenSpaceInterChar = (lenDit * 3) - lenSpaceIntraChar;
