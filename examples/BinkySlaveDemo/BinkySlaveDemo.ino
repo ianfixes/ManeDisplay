@@ -40,7 +40,7 @@ int morseState = 0;
 void receiveMorse(int bytes) {
   // we expect to get only one byte at a time, but in case there is a buildup just 
   //  clear it out and keep the last sent value
-  for (int i = 0; i <= bytes; ++i) {
+  for (int i = 0; i < bytes; ++i) {
     morseState = Wire.read();
   }
 }
