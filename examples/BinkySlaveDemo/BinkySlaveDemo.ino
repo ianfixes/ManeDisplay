@@ -11,7 +11,7 @@
 
 #include <Wire.h>
 #include <FastLED.h>
-
+#include <ManeDisplay.h>
 
 
 
@@ -34,7 +34,6 @@ void d3Loop(unsigned long nMillis) {
 
 /////////// A behavior to flash the onboard LED according to what is received from the I2C master
 
-const int i2cSlaveAddress = 9;  // this must agree with BinkyMasterDemo!
 int morseState = 0;
 
 void receiveMorse(int bytes) {
@@ -47,7 +46,7 @@ void receiveMorse(int bytes) {
 
 void morseSetup() {
   pinMode(LED_BUILTIN, OUTPUT);
-  Wire.begin(i2cSlaveAddress);  // Start the I2C Bus as Slave on address
+  Wire.begin(SLAVE_I2C_ADDRESS);  // Start the I2C Bus as Slave on address
   Wire.onReceive(receiveMorse); // Attach a function to trigger when something is received.
 }
 
