@@ -7,7 +7,7 @@
  */
 
 #include <Wire.h>
-#include <ManeDisplay.h>
+#include <DashMessage.h>
 
 // top-level settings
 const int morseWPM        = 10;
