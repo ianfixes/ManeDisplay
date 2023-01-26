@@ -42,7 +42,7 @@ void receiveMorse(int bytes) {
   while (Wire.available() >= WIRE_PROTOCOL_MESSAGE_LENGTH) {
     d.setFromWire(Wire);
     if (!d.isError()) {
-      morseState = d.getBit(MasterPin::led23to100pctAmber);
+      morseState = d.getBit(MasterSignal::led23to100pctAmber);
     }
   }
 }

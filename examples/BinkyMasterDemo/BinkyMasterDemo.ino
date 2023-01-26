@@ -25,7 +25,7 @@ bool ledState = HIGH;
 // send our desired state to the slave device
 void triggerSlave(int state) {
   DashMessage d;
-  d.setBit(MasterPin::led23to100pctAmber, state);
+  d.setBit(MasterSignal::led23to100pctAmber, state);
   d.send(Wire, SLAVE_I2C_ADDRESS);
 }
 
