@@ -24,9 +24,9 @@ bool ledState = HIGH;
 
 // send our desired state to the slave device
 void triggerSlave(int state) {
-  Wire.beginTransmission(SLAVE_I2C_ADDRESS);
-  Wire.write(state);
-  Wire.endTransmission();
+  DashMessage d;
+  d.setBit(MasterPin::led23to100pctAmber, state);
+  d.send(Wire, SLAVE_I2C_ADDRESS);
 }
 
 // to send a morse code character, turn on for a desired period of time then off for standard time

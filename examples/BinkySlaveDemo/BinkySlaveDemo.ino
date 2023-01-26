@@ -37,10 +37,13 @@ void d3Loop(unsigned long nMillis) {
 int morseState = 0;
 
 void receiveMorse(int bytes) {
-  // we expect to get only one byte at a time, but in case there is a buildup just
-  //  clear it out and keep the last sent value
-  for (int i = 0; i < bytes; ++i) {
-    morseState = Wire.read();
+  DashMessage d;
+  // consume all available messages
+  while (Wire.available() >= WIRE_PROTOCOL_MESSAGE_LENGTH) {
+    d.setFromWire(Wire);
+    if (!d.isError()) {
+      morseState = d.getBit(MasterPin::led23to100pctAmber);
+    }
   }
 }
 
