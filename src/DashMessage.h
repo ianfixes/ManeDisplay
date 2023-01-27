@@ -95,13 +95,13 @@ typedef struct DashMessage {
 
   // read payload from digital input pins
   void setFromPins(int (*myDigitalRead)(unsigned char)) {
-    setBit(MasterSignal::Values::led23to100pctAmber,   myDigitalRead(MasterPin::Values::led23to100pctAmber  ));
-    setBit(MasterSignal::Values::led23to100pctRed,     myDigitalRead(MasterPin::Values::led23to100pctRed    ));
-    setBit(MasterSignal::Values::led24to100pctBlue,    myDigitalRead(MasterPin::Values::led24to100pctBlue   ));
-    setBit(MasterSignal::Values::led25to100pctYellow,  myDigitalRead(MasterPin::Values::led25to100pctYellow ));
-    setBit(MasterSignal::Values::led27toBlack,         myDigitalRead(MasterPin::Values::led27toBlack        ));
-    setBit(MasterSignal::Values::led26toAmber,         myDigitalRead(MasterPin::Values::led26toAmber        ));
-    setBit(MasterSignal::Values::d3Low,                myDigitalRead(MasterPin::Values::d3Low               ));
+    setBit(MasterSignal::Values::boostWarning,         myDigitalRead(MasterPin::Values::boostWarning        ));
+    setBit(MasterSignal::Values::boostCritical,        myDigitalRead(MasterPin::Values::boostCritical       ));
+    setBit(MasterSignal::Values::acOn,                 myDigitalRead(MasterPin::Values::acOn                ));
+    setBit(MasterSignal::Values::heatedRearWindowOn,   myDigitalRead(MasterPin::Values::heatedRearWindowOn  ));
+    setBit(MasterSignal::Values::hazardOff,            myDigitalRead(MasterPin::Values::hazardOff           ));
+    setBit(MasterSignal::Values::rearFoggerOn,         myDigitalRead(MasterPin::Values::rearFoggerOn        ));
+    setBit(MasterSignal::Values::scrollCAN,            myDigitalRead(MasterPin::Values::scrollCAN           ));
     setBit(MasterSignal::Values::scrollPresetColours,  myDigitalRead(MasterPin::Values::scrollPresetColours ));
     setBit(MasterSignal::Values::scrollRainbowEffects, myDigitalRead(MasterPin::Values::scrollRainbowEffects));
     setBit(MasterSignal::Values::scrollBrightness,     myDigitalRead(MasterPin::Values::scrollBrightness    ));
