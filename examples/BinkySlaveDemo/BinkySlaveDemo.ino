@@ -12,22 +12,23 @@
 #include <Wire.h>
 #include <FastLED.h>
 #include <MasterProperties.h>
+#include <SlaveProperties.h>
 #include <DashMessage.h>
+#include <DashState.h>
 
 
 
 /////////  a behavior to flip the D3 pin on some interval in milliseconds, for testing
 
-const int d3pin          = 3;
 const int d3FlipInterval = 1000;
 
 void d3Setup() {
-  pinMode(d3pin, OUTPUT);
+  pinMode(SlavePin::Values::scrollCAN, OUTPUT);
 }
 
 void d3Loop(unsigned long nMillis) {
-  int ledState = ((nMillis % (d3FlipInterval * 2)) > d3FlipInterval) ? HIGH : LOW;
-  digitalWrite(d3pin, ledState);
+  int pinState = ((nMillis % (d3FlipInterval * 2)) > d3FlipInterval) ? HIGH : LOW;
+  digitalWrite(SlavePin::Values::scrollCAN, pinState);
 }
 
 
@@ -49,13 +50,13 @@ void receiveMorse(int bytes) {
 }
 
 void morseSetup() {
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(SlavePin::Values::ledBuiltin, OUTPUT);
   Wire.begin(SLAVE_I2C_ADDRESS);  // Start the I2C Bus as Slave on address
   Wire.onReceive(receiveMorse); // Attach a function to trigger when something is received.
 }
 
 void morseLoop(unsigned long nMillis) {
-  digitalWrite(LED_BUILTIN, (morseState == 0 ? LOW : HIGH));  // we may overwrite the same state in each loop, that's OK.
+  digitalWrite(SlavePin::Values::ledBuiltin, (morseState == 0 ? LOW : HIGH));  // we may overwrite the same state in each loop, that's OK.
 }
 
 
@@ -63,20 +64,18 @@ void morseLoop(unsigned long nMillis) {
 
 //////////////////// A behavior to cycle the dash lights
 
-#define LED_PIN 11             // which pin are LEDS connected to?
-#define NUM_LEDS 32
 #define COLOR_ORDER RGB
 #define LED_TYPE WS2812B       // i'm using WS2811s, FastLED supports lots of different types.
 
 #define MAX_BRIGHTNESS 255     // Thats full on, watch the power!
 #define MIN_BRIGHTNESS 5       // set to a minimum of 25%
 
-struct CRGB leds[NUM_LEDS];
+struct CRGB leds[NUM_DASH_LEDS];
 
 void ledSetup() {
   delay(3000); // in case we do something stupid. We dont want to get locked out.  TODO: someone tell Ian what "locked out" refers to
 
-  LEDS.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  LEDS.addLeds<LED_TYPE, SlavePin::Values::ledStrip, COLOR_ORDER>(leds, NUM_DASH_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(MAX_BRIGHTNESS);
 }
 
@@ -87,9 +86,9 @@ void ledLoop(unsigned long nMillis) {
   int hue        = constrain((nMillis / 70) % 255, MIN_BRIGHTNESS, MAX_BRIGHTNESS);
 
   // set all LEDs to a hue, with each one offset a bit -- should be a rotating rainbow effect
-  for(int i = 0; i < NUM_LEDS; i++) {
+  for(int i = 0; i < NUM_DASH_LEDS; i++) {
     // leds[i] = CHSV(hue, 255, 255); // use this line if the below doesn't work
-    leds[i] = CHSV((hue + (i * (255 / NUM_LEDS))) % 255, 255, 255);
+    leds[i] = CHSV((hue + (i * (255 / NUM_DASH_LEDS))) % 255, 255, 255);
   }
 
   // set brightness and apply
