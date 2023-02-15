@@ -4,6 +4,7 @@ compile:
 
   libraries:
     - FastLED
+    - Servo
 
 unittest:
   platforms:
