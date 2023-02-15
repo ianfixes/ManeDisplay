@@ -3,13 +3,6 @@
 /**
  * This file defines some of the properties of the slave board
  *
- * LEDs 0-6 - tachometer backlight
- * LED 19 - Backlight LED for clock
- * LED 23 - boost
- * LED 24 - "air conditioner is powered on"
- * LED 25 - Heated Rear Window
- * LED 26 - Rear Fog Light
- * LED 27 - hazard lights
  */
 
 // digital pin assignments for the slave
@@ -23,3 +16,19 @@ namespace SlavePin {
     ledBuiltin         = LED_BUILTIN,
   };
 }
+
+typedef struct SlaveState {
+  bool scrollCAN;
+  bool backlightDim;
+  bool tachometerCritical;
+  bool tachometerWarning;
+
+  // read payload from digital input pins
+  void setFromPins(int (*myDigitalRead)(unsigned char)) {
+    scrollCAN          = myDigitalRead(SlavePin::Values::scrollCAN);
+    backlightDim       = myDigitalRead(SlavePin::Values::backlightDim);
+    tachometerCritical = myDigitalRead(SlavePin::Values::tachometerCritical);
+    tachometerWarning  = myDigitalRead(SlavePin::Values::tachometerWarning);
+  }
+
+} SlaveState;
