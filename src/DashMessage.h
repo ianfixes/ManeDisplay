@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <Wire.h>
+#include "MasterProperties.h"
 
 const uint8_t SLAVE_I2C_ADDRESS = 9;
 
@@ -24,24 +25,6 @@ leading '1', then begin its normal processing
 // the number of bytes needed for our contrived protocol
 const unsigned int WIRE_PROTOCOL_MESSAGE_LENGTH = 2;
 
-// bit positions in our protocol. these exceed 8 bits, so they aren't
-// compatible with bit positions in a long int
-enum MasterPin {
-  led23to100pctAmber   = 0,
-  led23to100pctRed     = 1,
-  led24to100pctBlue    = 2,
-  led25to100pctYellow  = 3,
-  led27toBlack         = 4,
-  led26toAmber         = 5,
-  d3Low                = 6,
-  scrollPresetColours  = 7,
-  scrollRainbowEffects = 8,
-  scrollBrightness     = 9
-};
-
-// min and max for the enum, for iterating
-const unsigned int MASTERPIN_MIN = MasterPin::led23to100pctAmber;
-const unsigned int MASTERPIN_MAX = MasterPin::scrollBrightness;
 
 // the way that we will indicate the first byte in the protocol sequence
 const byte FIRST_FRAME_MARKER_MASK = 0b10000000;
@@ -57,12 +40,12 @@ typedef struct DashMessage {
   byte rawData[WIRE_PROTOCOL_MESSAGE_LENGTH]; // the underlying data
 
   // extract a single bit
-  inline bool getBit(MasterPin position) {
+  inline bool getBit(MasterSignal::Values position) {
     return rawData[position / 7] & (0b00000001 << position % 7);
   }
 
   // set a single bit
-  inline void setBit(MasterPin position, bool val) {
+  inline void setBit(MasterSignal::Values position, bool val) {
     const byte mask = 0b00000001 << (position % 7);
     if (val)
       rawData[position / 7] |= mask;
@@ -112,16 +95,16 @@ typedef struct DashMessage {
 
   // read payload from digital input pins
   void setFromPins(int (*myDigitalRead)(unsigned char)) {
-    setBit(MasterPin::led23to100pctAmber,   myDigitalRead(3));
-    setBit(MasterPin::led23to100pctRed,     myDigitalRead(4));
-    setBit(MasterPin::led24to100pctBlue,    myDigitalRead(5));
-    setBit(MasterPin::led25to100pctYellow,  myDigitalRead(6));
-    setBit(MasterPin::led27toBlack,         myDigitalRead(7));
-    setBit(MasterPin::led26toAmber,         myDigitalRead(8));
-    setBit(MasterPin::d3Low,                myDigitalRead(9));
-    setBit(MasterPin::scrollPresetColours,  myDigitalRead(10));
-    setBit(MasterPin::scrollRainbowEffects, myDigitalRead(11));
-    setBit(MasterPin::scrollBrightness,     myDigitalRead(12));
+    setBit(MasterSignal::Values::boostWarning,         myDigitalRead(MasterPin::Values::boostWarning        ));
+    setBit(MasterSignal::Values::boostCritical,        myDigitalRead(MasterPin::Values::boostCritical       ));
+    setBit(MasterSignal::Values::acOn,                 myDigitalRead(MasterPin::Values::acOn                ));
+    setBit(MasterSignal::Values::heatedRearWindowOn,   myDigitalRead(MasterPin::Values::heatedRearWindowOn  ));
+    setBit(MasterSignal::Values::hazardOff,            myDigitalRead(MasterPin::Values::hazardOff           ));
+    setBit(MasterSignal::Values::rearFoggerOn,         myDigitalRead(MasterPin::Values::rearFoggerOn        ));
+    setBit(MasterSignal::Values::scrollCAN,            myDigitalRead(MasterPin::Values::scrollCAN           ));
+    setBit(MasterSignal::Values::scrollPresetColours,  myDigitalRead(MasterPin::Values::scrollPresetColours ));
+    setBit(MasterSignal::Values::scrollRainbowEffects, myDigitalRead(MasterPin::Values::scrollRainbowEffects));
+    setBit(MasterSignal::Values::scrollBrightness,     myDigitalRead(MasterPin::Values::scrollBrightness    ));
   }
 
   // read input from I2C
@@ -155,7 +138,7 @@ typedef struct DashMessage {
   DashMessage(bool* data, unsigned int len) {
     initFrames();
     for (unsigned int i = 0; i < (WIRE_PROTOCOL_MESSAGE_LENGTH * 7) && i < len; ++i) {
-      setBit((MasterPin)i, data[i]);
+      setBit((MasterSignal::Values)i, data[i]);
     }
   }
 

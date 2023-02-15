@@ -24,16 +24,16 @@ unittest(wire_protocol_default_constructor)
   assertEqual((unsigned int)FIRST_FRAME_MARKER_MASK, (unsigned int) d.rawData[0]);
   assertEqual(0, (unsigned int) d.rawData[1]);
 
-  assertFalse(d.getBit(MasterPin::led23to100pctAmber));
-  assertFalse(d.getBit(MasterPin::led23to100pctRed));
-  assertFalse(d.getBit(MasterPin::led24to100pctBlue));
-  assertFalse(d.getBit(MasterPin::led25to100pctYellow));
-  assertFalse(d.getBit(MasterPin::led27toBlack));
-  assertFalse(d.getBit(MasterPin::led26toAmber));
-  assertFalse(d.getBit(MasterPin::d3Low));
-  assertFalse(d.getBit(MasterPin::scrollPresetColours));
-  assertFalse(d.getBit(MasterPin::scrollRainbowEffects));
-  assertFalse(d.getBit(MasterPin::scrollBrightness));
+  assertFalse(d.getBit(MasterSignal::Values::boostWarning));
+  assertFalse(d.getBit(MasterSignal::Values::boostCritical));
+  assertFalse(d.getBit(MasterSignal::Values::acOn));
+  assertFalse(d.getBit(MasterSignal::Values::heatedRearWindowOn));
+  assertFalse(d.getBit(MasterSignal::Values::hazardOff));
+  assertFalse(d.getBit(MasterSignal::Values::rearFoggerOn));
+  assertFalse(d.getBit(MasterSignal::Values::scrollCAN));
+  assertFalse(d.getBit(MasterSignal::Values::scrollPresetColours));
+  assertFalse(d.getBit(MasterSignal::Values::scrollRainbowEffects));
+  assertFalse(d.getBit(MasterSignal::Values::scrollBrightness));
 }
 
 unittest(wire_protocol_array_constructor)
@@ -75,16 +75,16 @@ unittest(wire_protocol_bit_positions_false)
     0b00000000
   };
   DashMessage d(payload);
-  assertFalse(d.getBit(MasterPin::led23to100pctAmber));
-  assertFalse(d.getBit(MasterPin::led23to100pctRed));
-  assertFalse(d.getBit(MasterPin::led24to100pctBlue));
-  assertFalse(d.getBit(MasterPin::led25to100pctYellow));
-  assertFalse(d.getBit(MasterPin::led27toBlack));
-  assertFalse(d.getBit(MasterPin::led26toAmber));
-  assertFalse(d.getBit(MasterPin::d3Low));
-  assertFalse(d.getBit(MasterPin::scrollPresetColours));
-  assertFalse(d.getBit(MasterPin::scrollRainbowEffects));
-  assertFalse(d.getBit(MasterPin::scrollBrightness));
+  assertFalse(d.getBit(MasterSignal::Values::boostWarning));
+  assertFalse(d.getBit(MasterSignal::Values::boostCritical));
+  assertFalse(d.getBit(MasterSignal::Values::acOn));
+  assertFalse(d.getBit(MasterSignal::Values::heatedRearWindowOn));
+  assertFalse(d.getBit(MasterSignal::Values::hazardOff));
+  assertFalse(d.getBit(MasterSignal::Values::rearFoggerOn));
+  assertFalse(d.getBit(MasterSignal::Values::scrollCAN));
+  assertFalse(d.getBit(MasterSignal::Values::scrollPresetColours));
+  assertFalse(d.getBit(MasterSignal::Values::scrollRainbowEffects));
+  assertFalse(d.getBit(MasterSignal::Values::scrollBrightness));
 }
 
 unittest(wire_protocol_bit_positions_true)
@@ -95,43 +95,43 @@ unittest(wire_protocol_bit_positions_true)
     0b00000111
   };
   DashMessage d(payload);
-  assertTrue(d.getBit(MasterPin::led23to100pctAmber));
-  assertTrue(d.getBit(MasterPin::led23to100pctRed));
-  assertTrue(d.getBit(MasterPin::led24to100pctBlue));
-  assertTrue(d.getBit(MasterPin::led25to100pctYellow));
-  assertTrue(d.getBit(MasterPin::led27toBlack));
-  assertTrue(d.getBit(MasterPin::led26toAmber));
-  assertTrue(d.getBit(MasterPin::d3Low));
-  assertTrue(d.getBit(MasterPin::scrollPresetColours));
-  assertTrue(d.getBit(MasterPin::scrollRainbowEffects));
-  assertTrue(d.getBit(MasterPin::scrollBrightness));
+  assertTrue(d.getBit(MasterSignal::Values::boostWarning));
+  assertTrue(d.getBit(MasterSignal::Values::boostCritical));
+  assertTrue(d.getBit(MasterSignal::Values::acOn));
+  assertTrue(d.getBit(MasterSignal::Values::heatedRearWindowOn));
+  assertTrue(d.getBit(MasterSignal::Values::hazardOff));
+  assertTrue(d.getBit(MasterSignal::Values::rearFoggerOn));
+  assertTrue(d.getBit(MasterSignal::Values::scrollCAN));
+  assertTrue(d.getBit(MasterSignal::Values::scrollPresetColours));
+  assertTrue(d.getBit(MasterSignal::Values::scrollRainbowEffects));
+  assertTrue(d.getBit(MasterSignal::Values::scrollBrightness));
 }
 
 unittest(wire_protocol_bit_positions_individual)
 {
   // sanity check that we can set one bit at a time and we get the one we expect.
   // note that we use the array-of-booleans initialization method
-  unsigned int flags_len = MASTERPIN_MAX + 1;
+  unsigned int flags_len = MASTERSIGNAL_MAX + 1;
   bool flags[flags_len];
 
-  for (int i = MASTERPIN_MIN; i <= MASTERPIN_MAX; ++i) {
+  for (int i = MASTERSIGNAL_MIN; i <= MASTERSIGNAL_MAX; ++i) {
     // only one flag at a time should be true
-    for (int j = MASTERPIN_MIN; j <= MASTERPIN_MAX; ++j) flags[j] = i == j;
+    for (int j = MASTERSIGNAL_MIN; j <= MASTERSIGNAL_MAX; ++j) flags[j] = i == j;
 
     DashMessage d(flags, flags_len);
     assertFalse(d.isError());
     // assertEqual(0, (unsigned int) d.rawData[0] - FIRST_FRAME_MARKER_MASK);
     // assertEqual(0, (unsigned int) d.rawData[1]);
-    assertEqual(i == MasterPin::led23to100pctAmber,   d.getBit(MasterPin::led23to100pctAmber));
-    assertEqual(i == MasterPin::led23to100pctRed,     d.getBit(MasterPin::led23to100pctRed));
-    assertEqual(i == MasterPin::led24to100pctBlue,    d.getBit(MasterPin::led24to100pctBlue));
-    assertEqual(i == MasterPin::led25to100pctYellow,  d.getBit(MasterPin::led25to100pctYellow));
-    assertEqual(i == MasterPin::led27toBlack,         d.getBit(MasterPin::led27toBlack));
-    assertEqual(i == MasterPin::led26toAmber,         d.getBit(MasterPin::led26toAmber));
-    assertEqual(i == MasterPin::d3Low,                d.getBit(MasterPin::d3Low));
-    assertEqual(i == MasterPin::scrollPresetColours,  d.getBit(MasterPin::scrollPresetColours));
-    assertEqual(i == MasterPin::scrollRainbowEffects, d.getBit(MasterPin::scrollRainbowEffects));
-    assertEqual(i == MasterPin::scrollBrightness,     d.getBit(MasterPin::scrollBrightness));
+    assertEqual(i == MasterSignal::Values::boostWarning,         d.getBit(MasterSignal::Values::boostWarning));
+    assertEqual(i == MasterSignal::Values::boostCritical,        d.getBit(MasterSignal::Values::boostCritical));
+    assertEqual(i == MasterSignal::Values::acOn,                 d.getBit(MasterSignal::Values::acOn));
+    assertEqual(i == MasterSignal::Values::heatedRearWindowOn,   d.getBit(MasterSignal::Values::heatedRearWindowOn));
+    assertEqual(i == MasterSignal::Values::hazardOff,            d.getBit(MasterSignal::Values::hazardOff));
+    assertEqual(i == MasterSignal::Values::rearFoggerOn,         d.getBit(MasterSignal::Values::rearFoggerOn));
+    assertEqual(i == MasterSignal::Values::scrollCAN,            d.getBit(MasterSignal::Values::scrollCAN));
+    assertEqual(i == MasterSignal::Values::scrollPresetColours,  d.getBit(MasterSignal::Values::scrollPresetColours));
+    assertEqual(i == MasterSignal::Values::scrollRainbowEffects, d.getBit(MasterSignal::Values::scrollRainbowEffects));
+    assertEqual(i == MasterSignal::Values::scrollBrightness,     d.getBit(MasterSignal::Values::scrollBrightness));
   }
 }
 
@@ -139,23 +139,23 @@ unittest(wire_protocol_bit_positions_set_get)
 {
   // this tests the set/get functions that manipulate a DashMessage in-place
   DashMessage d;
-  for (int i = MASTERPIN_MIN; i <= MASTERPIN_MAX; ++i) {
+  for (int i = MASTERSIGNAL_MIN; i <= MASTERSIGNAL_MAX; ++i) {
     // only one flag at a time should be true
-    d.setBit((MasterPin)i, true);
+    d.setBit((MasterSignal::Values)i, true);
     assertFalse(d.isError());
 
-    assertEqual(i == MasterPin::led23to100pctAmber,   d.getBit(MasterPin::led23to100pctAmber));
-    assertEqual(i == MasterPin::led23to100pctRed,     d.getBit(MasterPin::led23to100pctRed));
-    assertEqual(i == MasterPin::led24to100pctBlue,    d.getBit(MasterPin::led24to100pctBlue));
-    assertEqual(i == MasterPin::led25to100pctYellow,  d.getBit(MasterPin::led25to100pctYellow));
-    assertEqual(i == MasterPin::led27toBlack,         d.getBit(MasterPin::led27toBlack));
-    assertEqual(i == MasterPin::led26toAmber,         d.getBit(MasterPin::led26toAmber));
-    assertEqual(i == MasterPin::d3Low,                d.getBit(MasterPin::d3Low));
-    assertEqual(i == MasterPin::scrollPresetColours,  d.getBit(MasterPin::scrollPresetColours));
-    assertEqual(i == MasterPin::scrollRainbowEffects, d.getBit(MasterPin::scrollRainbowEffects));
-    assertEqual(i == MasterPin::scrollBrightness,     d.getBit(MasterPin::scrollBrightness));
+    assertEqual(i == MasterSignal::Values::boostWarning,         d.getBit(MasterSignal::Values::boostWarning));
+    assertEqual(i == MasterSignal::Values::boostCritical,        d.getBit(MasterSignal::Values::boostCritical));
+    assertEqual(i == MasterSignal::Values::acOn,                 d.getBit(MasterSignal::Values::acOn));
+    assertEqual(i == MasterSignal::Values::heatedRearWindowOn,   d.getBit(MasterSignal::Values::heatedRearWindowOn));
+    assertEqual(i == MasterSignal::Values::hazardOff,            d.getBit(MasterSignal::Values::hazardOff));
+    assertEqual(i == MasterSignal::Values::rearFoggerOn,         d.getBit(MasterSignal::Values::rearFoggerOn));
+    assertEqual(i == MasterSignal::Values::scrollCAN,            d.getBit(MasterSignal::Values::scrollCAN));
+    assertEqual(i == MasterSignal::Values::scrollPresetColours,  d.getBit(MasterSignal::Values::scrollPresetColours));
+    assertEqual(i == MasterSignal::Values::scrollRainbowEffects, d.getBit(MasterSignal::Values::scrollRainbowEffects));
+    assertEqual(i == MasterSignal::Values::scrollBrightness,     d.getBit(MasterSignal::Values::scrollBrightness));
 
-    d.setBit((MasterPin)i, false);
+    d.setBit((MasterSignal::Values)i, false);
   }
 
 }
@@ -166,16 +166,16 @@ unittest(payload_from_digitalread)
   fakePins = 0b0101010101010101;
   DashMessage d(fakeDigitalRead);
 
-  assertEqual(MasterPin::led23to100pctAmber   % 2, d.getBit(MasterPin::led23to100pctAmber));
-  assertEqual(MasterPin::led23to100pctRed     % 2, d.getBit(MasterPin::led23to100pctRed));
-  assertEqual(MasterPin::led24to100pctBlue    % 2, d.getBit(MasterPin::led24to100pctBlue));
-  assertEqual(MasterPin::led25to100pctYellow  % 2, d.getBit(MasterPin::led25to100pctYellow));
-  assertEqual(MasterPin::led27toBlack         % 2, d.getBit(MasterPin::led27toBlack));
-  assertEqual(MasterPin::led26toAmber         % 2, d.getBit(MasterPin::led26toAmber));
-  assertEqual(MasterPin::d3Low                % 2, d.getBit(MasterPin::d3Low));
-  assertEqual(MasterPin::scrollPresetColours  % 2, d.getBit(MasterPin::scrollPresetColours));
-  assertEqual(MasterPin::scrollRainbowEffects % 2, d.getBit(MasterPin::scrollRainbowEffects));
-  assertEqual(MasterPin::scrollBrightness     % 2, d.getBit(MasterPin::scrollBrightness));
+  assertEqual(MasterSignal::Values::boostWarning         % 2, d.getBit(MasterSignal::Values::boostWarning));
+  assertEqual(MasterSignal::Values::boostCritical        % 2, d.getBit(MasterSignal::Values::boostCritical));
+  assertEqual(MasterSignal::Values::acOn                 % 2, d.getBit(MasterSignal::Values::acOn));
+  assertEqual(MasterSignal::Values::heatedRearWindowOn   % 2, d.getBit(MasterSignal::Values::heatedRearWindowOn));
+  assertEqual(MasterSignal::Values::hazardOff            % 2, d.getBit(MasterSignal::Values::hazardOff));
+  assertEqual(MasterSignal::Values::rearFoggerOn         % 2, d.getBit(MasterSignal::Values::rearFoggerOn));
+  assertEqual(MasterSignal::Values::scrollCAN            % 2, d.getBit(MasterSignal::Values::scrollCAN));
+  assertEqual(MasterSignal::Values::scrollPresetColours  % 2, d.getBit(MasterSignal::Values::scrollPresetColours));
+  assertEqual(MasterSignal::Values::scrollRainbowEffects % 2, d.getBit(MasterSignal::Values::scrollRainbowEffects));
+  assertEqual(MasterSignal::Values::scrollBrightness     % 2, d.getBit(MasterSignal::Values::scrollBrightness));
 }
 
 
@@ -189,15 +189,15 @@ unittest(sent_payload)
            //      5    42
   DashMessage d(fakeDigitalRead);
   assertFalse(d.isError());
-  assertTrue( d.getBit(MasterPin::led23to100pctRed));
-  assertFalse(d.getBit(MasterPin::led24to100pctBlue));
-  assertTrue( d.getBit(MasterPin::led25to100pctYellow));
-  assertFalse(d.getBit(MasterPin::led27toBlack));
-  assertTrue( d.getBit(MasterPin::led26toAmber));
-  assertFalse(d.getBit(MasterPin::d3Low));
-  assertTrue( d.getBit(MasterPin::scrollPresetColours));
-  assertFalse(d.getBit(MasterPin::scrollRainbowEffects));
-  assertTrue( d.getBit(MasterPin::scrollBrightness));
+  assertTrue( d.getBit(MasterSignal::Values::boostCritical));
+  assertFalse(d.getBit(MasterSignal::Values::acOn));
+  assertTrue( d.getBit(MasterSignal::Values::heatedRearWindowOn));
+  assertFalse(d.getBit(MasterSignal::Values::hazardOff));
+  assertTrue( d.getBit(MasterSignal::Values::rearFoggerOn));
+  assertFalse(d.getBit(MasterSignal::Values::scrollCAN));
+  assertTrue( d.getBit(MasterSignal::Values::scrollPresetColours));
+  assertFalse(d.getBit(MasterSignal::Values::scrollRainbowEffects));
+  assertTrue( d.getBit(MasterSignal::Values::scrollBrightness));
 
   Wire.resetMocks();
   deque<uint8_t>* mosi = Wire.getMosi(addr);  // master out, slave in buffer
@@ -236,15 +236,15 @@ unittest(received_good_payload)
   assertFalse(d.isError());
   assertEqual((unsigned int) fakePayload[0], (unsigned int) d.rawData[0]);
   assertEqual((unsigned int) fakePayload[1], (unsigned int) d.rawData[1]);
-  assertTrue( d.getBit(MasterPin::led23to100pctRed));
-  assertFalse(d.getBit(MasterPin::led24to100pctBlue));
-  assertTrue( d.getBit(MasterPin::led25to100pctYellow));
-  assertFalse(d.getBit(MasterPin::led27toBlack));
-  assertTrue( d.getBit(MasterPin::led26toAmber));
-  assertFalse(d.getBit(MasterPin::d3Low));
-  assertTrue( d.getBit(MasterPin::scrollPresetColours));
-  assertFalse(d.getBit(MasterPin::scrollRainbowEffects));
-  assertTrue( d.getBit(MasterPin::scrollBrightness));
+  assertTrue( d.getBit(MasterSignal::Values::boostCritical));
+  assertFalse(d.getBit(MasterSignal::Values::acOn));
+  assertTrue( d.getBit(MasterSignal::Values::heatedRearWindowOn));
+  assertFalse(d.getBit(MasterSignal::Values::hazardOff));
+  assertTrue( d.getBit(MasterSignal::Values::rearFoggerOn));
+  assertFalse(d.getBit(MasterSignal::Values::scrollCAN));
+  assertTrue( d.getBit(MasterSignal::Values::scrollPresetColours));
+  assertFalse(d.getBit(MasterSignal::Values::scrollRainbowEffects));
+  assertTrue( d.getBit(MasterSignal::Values::scrollBrightness));
 }
 
 unittest(received_unsynced_payload)
@@ -276,15 +276,15 @@ unittest(received_unsynced_payload)
   assertFalse(d.isError());
   assertEqual((unsigned int) fakePayload[1], (unsigned int) d.rawData[0]);
   assertEqual((unsigned int) fakePayload[2], (unsigned int) d.rawData[1]);
-  assertTrue( d.getBit(MasterPin::led23to100pctRed));
-  assertFalse(d.getBit(MasterPin::led24to100pctBlue));
-  assertTrue( d.getBit(MasterPin::led25to100pctYellow));
-  assertFalse(d.getBit(MasterPin::led27toBlack));
-  assertTrue( d.getBit(MasterPin::led26toAmber));
-  assertFalse(d.getBit(MasterPin::d3Low));
-  assertTrue( d.getBit(MasterPin::scrollPresetColours));
-  assertFalse(d.getBit(MasterPin::scrollRainbowEffects));
-  assertTrue( d.getBit(MasterPin::scrollBrightness));
+  assertTrue( d.getBit(MasterSignal::Values::boostCritical));
+  assertFalse(d.getBit(MasterSignal::Values::acOn));
+  assertTrue( d.getBit(MasterSignal::Values::heatedRearWindowOn));
+  assertFalse(d.getBit(MasterSignal::Values::hazardOff));
+  assertTrue( d.getBit(MasterSignal::Values::rearFoggerOn));
+  assertFalse(d.getBit(MasterSignal::Values::scrollCAN));
+  assertTrue( d.getBit(MasterSignal::Values::scrollPresetColours));
+  assertFalse(d.getBit(MasterSignal::Values::scrollRainbowEffects));
+  assertTrue( d.getBit(MasterSignal::Values::scrollBrightness));
 }
 
 

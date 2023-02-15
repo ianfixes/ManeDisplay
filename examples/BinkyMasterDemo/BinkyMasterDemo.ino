@@ -7,6 +7,7 @@
  */
 
 #include <Wire.h>
+#include <MasterProperties.h>
 #include <DashMessage.h>
 
 // top-level settings
@@ -25,7 +26,7 @@ bool ledState = HIGH;
 // send our desired state to the slave device
 void triggerSlave(int state) {
   DashMessage d;
-  d.setBit(MasterPin::led23to100pctAmber, state);
+  d.setBit(MasterSignal::Values::boostWarning, state);
   d.send(Wire, SLAVE_I2C_ADDRESS);
 }
 
