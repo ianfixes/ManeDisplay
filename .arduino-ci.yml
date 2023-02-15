@@ -1,0 +1,28 @@
+compile:
+  platforms:
+    - nano_every
+
+  libraries:
+    - FastLED
+
+unittest:
+  platforms:
+    - nano_every
+
+# nano_every definition isn't yet in a released arduino_ci version
+packages:
+  arduino:megaavr:
+    url: https://downloads.arduino.cc/packages/package_index.json
+
+platforms:
+  nano_every:
+    board: arduino:megaavr:nona4809
+    package: arduino:megaavr
+    gcc:
+      features:
+      defines:
+        - MILLIS_USE_TIMERB3
+        - NO_EXTERNAL_I2C_PULLUP
+        - AVR_NANO_4809_328MODE
+      warnings:
+      flags:

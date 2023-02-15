@@ -7,10 +7,10 @@
  */
 
 #include <Wire.h>
+#include <DashMessage.h>
 
 // top-level settings
 const int morseWPM        = 10;
-const int i2cSlaveAddress = 9;  // this must agree with BinkySlaveDemo!
 
 // settings calculated from top-level settings
 const int lenDit            = int(60.0 * 1000 / (50.0 * morseWPM)); // https://morsecode.world/international/timing.html in milliseconds
@@ -24,9 +24,9 @@ bool ledState = HIGH;
 
 // send our desired state to the slave device
 void triggerSlave(int state) {
-  Wire.beginTransmission(i2cSlaveAddress);
-  Wire.write(state);
-  Wire.endTransmission();
+  DashMessage d;
+  d.setBit(MasterPin::led23to100pctAmber, state);
+  d.send(Wire, SLAVE_I2C_ADDRESS);
 }
 
 // to send a morse code character, turn on for a desired period of time then off for standard time

@@ -2,7 +2,7 @@
  * Troubleshooting / debugging program for the Binky instrument panel.
  *
  * This will setup several behaviors and run one slice of each behavior on every loop()
- * 
+ *
  * 1. Flip the D3 pin on an interval
  * 2. Flash the onboard LED according to input from the I2C master
  *   Based on https://create.arduino.cc/projecthub/PIYUSH_K_SINGH/master-slave-i2c-connection-f1aa53
@@ -11,7 +11,7 @@
 
 #include <Wire.h>
 #include <FastLED.h>
-
+#include <DashMessage.h>
 
 
 
@@ -26,7 +26,7 @@ void d3Setup() {
 
 void d3Loop(unsigned long nMillis) {
   int ledState = ((nMillis % (d3FlipInterval * 2)) > d3FlipInterval) ? HIGH : LOW;
-  digitalWrite(d3pin, ledState);  
+  digitalWrite(d3pin, ledState);
 }
 
 
@@ -34,20 +34,22 @@ void d3Loop(unsigned long nMillis) {
 
 /////////// A behavior to flash the onboard LED according to what is received from the I2C master
 
-const int i2cSlaveAddress = 9;  // this must agree with BinkyMasterDemo!
 int morseState = 0;
 
 void receiveMorse(int bytes) {
-  // we expect to get only one byte at a time, but in case there is a buildup just 
-  //  clear it out and keep the last sent value
-  for (int i = 0; i < bytes; ++i) {
-    morseState = Wire.read();
+  DashMessage d;
+  // consume all available messages
+  while (Wire.available() >= WIRE_PROTOCOL_MESSAGE_LENGTH) {
+    d.setFromWire(Wire);
+    if (!d.isError()) {
+      morseState = d.getBit(MasterPin::led23to100pctAmber);
+    }
   }
 }
 
 void morseSetup() {
   pinMode(LED_BUILTIN, OUTPUT);
-  Wire.begin(i2cSlaveAddress);  // Start the I2C Bus as Slave on address
+  Wire.begin(SLAVE_I2C_ADDRESS);  // Start the I2C Bus as Slave on address
   Wire.onReceive(receiveMorse); // Attach a function to trigger when something is received.
 }
 
@@ -78,8 +80,8 @@ void ledSetup() {
 }
 
 void ledLoop(unsigned long nMillis) {
-  // make the hue and brightness become functions of time.  
-  // 3 and 7 are prime numbers so the hue & brightness won't coincide 
+  // make the hue and brightness become functions of time.
+  // 3 and 7 are prime numbers so the hue & brightness won't coincide
   int brightness = constrain((nMillis / 30) % 255, MIN_BRIGHTNESS, MAX_BRIGHTNESS);
   int hue        = constrain((nMillis / 70) % 255, MIN_BRIGHTNESS, MAX_BRIGHTNESS);
 
@@ -110,7 +112,7 @@ void loop() {
   // note that these behaviors MUST NOT use delay() inside them -- instead, make sure
   // that they accept the current time in millis and make their behavior decisions off
   // of that number (typically by the mod operator: %)
-  
+
   d3Loop(currentMillis);
   morseLoop(currentMillis);
   ledLoop(currentMillis);
