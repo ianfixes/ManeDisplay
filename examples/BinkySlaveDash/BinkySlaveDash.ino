@@ -8,6 +8,7 @@
 
 DashSupport ds = {
   pinMode,
+  analogRead,
   digitalRead,
   digitalWrite,
   &FastLED
@@ -34,9 +35,8 @@ void setup() {
 }
 
 void loop() {
-  unsigned long currentMillis = millis();
-  SlaveState state;
-  state.setFromPins(digitalRead);
+  const unsigned long currentMillis = millis();
+  SlaveState state(digitalRead, analogRead);
   dash.setState(state);
   dash.apply(currentMillis);
 }
