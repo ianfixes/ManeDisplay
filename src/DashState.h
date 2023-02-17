@@ -1,9 +1,11 @@
 #pragma once
 
 #include "DashMessage.h"
+#include <FastLED.h>
+#include "CalibratedServo.h"
 
 /**
- * This file defines the dashboard LEDs state
+ * This file defines the dashboard LEDs state, servos, and how the dash performs its logic
  *
  * LEDs 0-6 - tachometer backlight
  * LED 19 - Backlight LED for clock
@@ -64,13 +66,25 @@ const unsigned int DASH_LED_MIN = DashLED::Values::tach0;
 const unsigned int DASH_LED_MAX = DashLED::Values::windowSw0;
 const unsigned int NUM_DASH_LEDS = DASH_LED_MAX + 1;
 
+
+
+
+
 // Struct to dependency-inject any standard functions needed
+// This is a way to separate the function of these classes from the hardware,
+// which will make testing easier -- we can feed it mock functions if we want
 typedef struct DashSupport {
   void (*pinMode)(pin_size_t, int);
+  int (*analogRead)(unsigned char);
   int (*digitalRead)(unsigned char);
   void (*digitalWrite)(pin_size_t, int);
   CFastLED* fastLed;
 } DashSupport;
+
+
+
+
+
 
 // define the LED position in physical space,
 // relative to upper left of console,
@@ -122,6 +136,17 @@ const LEDPosition ledPosition[NUM_DASH_LEDS] = {
 };
 
 
+
+
+// The state of the dashboard.
+//
+// This struct is responsible for configuring the hardware initially
+// and, given input in the form of:
+//   * a hardware state
+//   * the latest message from I2C
+//   * the current time, in millis
+// make all decisions about what the output should look like, and
+// apply that output.
 typedef struct DashState {
   DashSupport support;
   bool inBootSequence;
@@ -132,16 +157,26 @@ typedef struct DashState {
 
   struct CRGB leds[NUM_DASH_LEDS];
 
+  CalibratedServo fuelGauge;
+  CalibratedServo tempGauge;
+  CalibratedServo oilGauge;
 
   // construct empty container
-  DashState(DashSupport ds) {
+  // This is also where we set the calibration data for the servos
+  DashState(DashSupport ds):
+    fuelGauge(SlavePin::Values::fuelServo, 0, 1023, 0, 180),
+    tempGauge(SlavePin::Values::tempServo, 0, 1023, 0, 180),
+    oilGauge( SlavePin::Values::oilServo,  0, 1023, 0, 180)
+  {
     support = ds;
   }
 
+  // accept a message from I2C
   void setMessage(DashMessage dm) {
     nextMessage = dm;
   }
 
+  // accept a hardware state
   void setState(SlaveState state) {
     nextState = state;
   }
@@ -151,10 +186,19 @@ typedef struct DashState {
     return nMillis > 3000;
   }
 
+  // perform all hardware setup and software state init for this board
   void setup() {
     inBootSequence = true;
-    pinMode(SlavePin::Values::scrollCAN, OUTPUT);
-    pinMode(SlavePin::Values::ledStrip,  OUTPUT);
+
+    // configure inputs
+    SlaveState::setup(support.pinMode);
+
+    // configure outputs
+    support.pinMode(SlavePin::Values::scrollCAN, OUTPUT);
+    support.pinMode(SlavePin::Values::ledStrip,  OUTPUT);
+    fuelGauge.setup();
+    tempGauge.setup();
+    oilGauge.setup();
 
     support.fastLed->addLeds<LED_TYPE, SlavePin::Values::ledStrip, COLOR_ORDER>(leds, NUM_DASH_LEDS).setCorrection(TypicalLEDStrip);
     support.fastLed->setBrightness(MAX_BRIGHTNESS);   // TODO
@@ -170,10 +214,11 @@ typedef struct DashState {
 
     // here are the things we have to make sense of
     // TODO: delete the list when everything's crossed off it
-    nextState.scrollCAN;
     nextState.backlightDim;
     nextState.tachometerCritical;
     nextState.tachometerWarning;
+    nextState.ignition;
+
     nextMessage.getBit(MasterSignal::Values::boostWarning);        // TODO: Amber
     nextMessage.getBit(MasterSignal::Values::boostCritical);       // TODO: Red
     nextMessage.getBit(MasterSignal::Values::acOn);                // TODO: Blue
@@ -185,6 +230,10 @@ typedef struct DashState {
     nextMessage.getBit(MasterSignal::Values::scrollRainbowEffects);
     nextMessage.getBit(MasterSignal::Values::scrollBrightness);
 
+    // set the servos
+    fuelGauge.write(nextState.fuelLevel);
+    tempGauge.write(nextState.temperatureLevel);
+    oilGauge.write(nextState.oilPressureLevel);
 
     // set the scroll CAN button state
     support.digitalWrite(SlavePin::Values::scrollCAN, nextState.scrollCAN ? HIGH : LOW);
