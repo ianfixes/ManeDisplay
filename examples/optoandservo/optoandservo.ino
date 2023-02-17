@@ -1,6 +1,5 @@
-#include <Servo.h>
+#include <CalibratedServo.h>
 #include <SlaveProperties.h>
-#include <DashState.h>
 
 // the pin, input min/max and output min/max are now part of the initialization
 CalibratedServo fuelgauge(SlavePin::Values::fuelServo, 0, 1023, 0, 180);
