@@ -15,8 +15,7 @@ DashSupport ds = {
 };
 DashState dash(ds);
 
-void receiveDashMessage(int bytes) {
-  bytes; // suppress a compiler warning; we won't use this
+void receiveDashMessage(int /* bytes */) {
   DashMessage dm;
   // consume all available messages
   while (Wire.available() >= (int)WIRE_PROTOCOL_MESSAGE_LENGTH) {
