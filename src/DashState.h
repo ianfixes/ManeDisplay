@@ -266,18 +266,16 @@ typedef struct DashState {
 
     // here are the things we have to make sense of
     // TODO: delete the list when everything's crossed off it
-    nextState.tachometerCritical;
-    nextState.tachometerWarning;
     nextState.ignition;
     nextMessage.getBit(MasterSignal::Values::scrollPresetColours);
     nextMessage.getBit(MasterSignal::Values::scrollBrightness);
 
-    // set the servos
+    // update the servos
     fuelGauge.write(nextState.fuelLevel);
     tempGauge.write(nextState.temperatureLevel);
     oilGauge.write(nextState.oilPressureLevel);
 
-    // set the scroll CAN button state
+    // update the scroll CAN button state
     support.digitalWrite(SlavePin::Values::scrollCAN, nextState.scrollCAN ? HIGH : LOW);
 
     // update all stateful LEDs from the input
