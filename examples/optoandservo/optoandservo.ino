@@ -1,10 +1,13 @@
 #include <CalibratedServo.h>
 #include <SlaveProperties.h>
 
+const Range inputRange { 0, 1023 };
+const Range outputRange { 0, 180 };
+
 // the pin, input min/max and output min/max are now part of the initialization
-CalibratedServo fuelgauge(SlavePin::Values::fuelServo, 0, 1023, 0, 180);
-CalibratedServo tempgauge(SlavePin::Values::tempServo, 0, 1023, 0, 180);
-CalibratedServo oilgauge( SlavePin::Values::oilServo,  0, 1023, 0, 180);
+CalibratedServo fuelgauge(SlavePin::Values::fuelServo, inputRange, outputRange);
+CalibratedServo tempgauge(SlavePin::Values::tempServo, inputRange, outputRange);
+CalibratedServo oilgauge( SlavePin::Values::oilServo,  inputRange, outputRange);
 
 void setup() {
   fuelgauge.setup();
