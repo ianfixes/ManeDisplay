@@ -1,8 +1,9 @@
 #pragma once
 
 #include "DashMessage.h"
-#include <FastLED.h>
 #include "CalibratedServo.h"
+#include "LEDState.h"
+#include <FastLED.h>
 
 /**
  * This file defines the dashboard LEDs state, servos, and how the dash performs its logic
@@ -19,8 +20,9 @@
 #define COLOR_ORDER RGB
 #define LED_TYPE WS2812B       // i'm using WS2811s, FastLED supports lots of different types.
 
-#define MAX_BRIGHTNESS 255     // Thats full on, watch the power!
-#define MIN_BRIGHTNESS 5       // set to a minimum of 5%
+const int MAX_BRIGHTNESS    = 255;  // Thats full on, watch the power!
+const int MID_BRIGHTNESS    = 128;  // choose halfway brightness point
+const int MIN_BRIGHTNESS    = 5;    // set to a minimum of 5%
 
 // LED assignments across the dash. numbers favor left to right reading
 namespace DashLED {
@@ -161,15 +163,52 @@ typedef struct DashState {
   CalibratedServo tempGauge;
   CalibratedServo oilGauge;
 
+  // can't declare an array of abstract classes, so declare an array
+  // of pointers to those abstract classes.  hence the use of "new".
+  StatefulLED* statefulLeds[NUM_DASH_LEDS] = {
+    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach0),
+    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach1),
+    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach2),
+    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach3),
+    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach4),
+    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach5),
+    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach6),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::gauge1),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::gauge0),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::CAN),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::gauge3),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::gauge2),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed0),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed1),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed2),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed3),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed4),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed5),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed6),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::clock),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::oilDial),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::boostDial),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::voltsDial),
+    new            BoostLED(leds, NUM_DASH_LEDS, DashLED::Values::boostInd),
+    new          AirCondLED(leds, NUM_DASH_LEDS, DashLED::Values::airConditioningInd),
+    new HeatedRearWindowLED(leds, NUM_DASH_LEDS, DashLED::Values::heatedRearWindowInd),
+    new       RearFoggerLED(leds, NUM_DASH_LEDS, DashLED::Values::rearFogLightInd),
+    new           HazardLED(leds, NUM_DASH_LEDS, DashLED::Values::hazardInd),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::auxLight),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::heater0),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::heater1),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::windowSw1),
+    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::windowSw0)
+  };
+
   // construct empty container
   // This is also where we set the calibration data for the servos
   DashState(DashSupport ds):
+    support(ds),
     fuelGauge(SlavePin::Values::fuelServo, 0, 1023, 0, 180),
     tempGauge(SlavePin::Values::tempServo, 0, 1023, 0, 180),
     oilGauge( SlavePin::Values::oilServo,  0, 1023, 0, 180)
-  {
-    support = ds;
-  }
+  {}
 
   // accept a message from I2C
   void setMessage(DashMessage dm) {
@@ -182,7 +221,11 @@ typedef struct DashState {
   }
 
   bool processBootSequence(unsigned long nMillis) {
-    // TODO: actually do something with a boot sequence
+    // test the gauge ranges.  for safety, just halfway for now
+    fuelGauge.write(500);
+    tempGauge.write(500);
+    oilGauge.write(500);
+
     return nMillis > 3000;
   }
 
@@ -214,20 +257,10 @@ typedef struct DashState {
 
     // here are the things we have to make sense of
     // TODO: delete the list when everything's crossed off it
-    nextState.backlightDim;
     nextState.tachometerCritical;
     nextState.tachometerWarning;
     nextState.ignition;
-
-    nextMessage.getBit(MasterSignal::Values::boostWarning);        // TODO: Amber
-    nextMessage.getBit(MasterSignal::Values::boostCritical);       // TODO: Red
-    nextMessage.getBit(MasterSignal::Values::acOn);                // TODO: Blue
-    nextMessage.getBit(MasterSignal::Values::heatedRearWindowOn);  // TODO: Yellow
-    nextMessage.getBit(MasterSignal::Values::hazardOff);           // TODO: Black
-    nextMessage.getBit(MasterSignal::Values::rearFoggerOn);        // TODO: Amber
-    nextMessage.getBit(MasterSignal::Values::scrollCAN);
     nextMessage.getBit(MasterSignal::Values::scrollPresetColours);
-    nextMessage.getBit(MasterSignal::Values::scrollRainbowEffects);
     nextMessage.getBit(MasterSignal::Values::scrollBrightness);
 
     // set the servos
@@ -238,10 +271,12 @@ typedef struct DashState {
     // set the scroll CAN button state
     support.digitalWrite(SlavePin::Values::scrollCAN, nextState.scrollCAN ? HIGH : LOW);
 
-    // TODO: set the LED state
-    // leds[i] = CHSV(255, 255, 255);
-    // support.fastLed->setBrightness(brightness); // not sure if there is a way (or a need) to do this per-LED
-    // support.fastLed->show();
+    // update all stateful LEDs from the input
+    for (unsigned int i = DASH_LED_MIN; i < NUM_DASH_LEDS; ++i) {
+      statefulLeds[i]->loop(millis, nextMessage, nextState);
+    }
+    support.fastLed->setBrightness(nextState.backlightDim ? MID_BRIGHTNESS : MAX_BRIGHTNESS); // not sure if there is a way (or a need) to do this per-LED
+    support.fastLed->show();
 
     // keep 1 step's worth of history
     lastState = nextState;

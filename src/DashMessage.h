@@ -40,7 +40,7 @@ typedef struct DashMessage {
   byte rawData[WIRE_PROTOCOL_MESSAGE_LENGTH]; // the underlying data
 
   // extract a single bit
-  inline bool getBit(MasterSignal::Values position) {
+  inline bool getBit(MasterSignal::Values position) const {
     return rawData[position / 7] & (0b00000001 << position % 7);
   }
 
@@ -74,7 +74,7 @@ typedef struct DashMessage {
   }
 
   // if frame marker is unset, this is an error
-  inline bool isError() {
+  inline bool isError() const {
     return !(rawData[0] & FIRST_FRAME_MARKER_MASK);
   }
 
