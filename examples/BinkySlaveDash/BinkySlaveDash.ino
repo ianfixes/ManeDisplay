@@ -1,11 +1,20 @@
 /*
-*/
+ * The binky dashboard slave board is responsible for receiving messages from the
+ * master and reading pins state.  From there, everything is delegated to the DashState.h
+ * library functions
+ *
+ * Messages from the wire are passed to the dash asynchronously.
+ * Pin states are passed synchronously.
+ * That information is then applied to the hardware.
+ */
 #include <Wire.h>
 #include <FastLED.h>
 #include <SlaveProperties.h>
 #include <DashMessage.h>
 #include <DashState.h>
 
+// This just provides all the library functions the DashState.h file will need.
+// Doing it this way allows us to swap in different functions for unit testing.
 DashSupport ds = {
   pinMode,
   analogRead,
@@ -13,6 +22,7 @@ DashSupport ds = {
   digitalWrite,
   &FastLED
 };
+
 DashState dash(ds);
 
 void receiveDashMessage(int /* bytes */) {

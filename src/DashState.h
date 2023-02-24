@@ -20,9 +20,18 @@
 #define COLOR_ORDER RGB
 #define LED_TYPE WS2812B       // i'm using WS2811s, FastLED supports lots of different types.
 
-const int MAX_BRIGHTNESS    = 255;  // Thats full on, watch the power!
-const int MID_BRIGHTNESS    = 128;  // choose halfway brightness point
-const int MIN_BRIGHTNESS    = 5;    // set to a minimum of 5%
+// define limits for sensor inputs
+const Range fuelSenderLimit { 0, 1023 };
+const Range tempSenderLimit { 0, 1023 };
+const Range oilSenderLimit  { 0, 1023 };
+
+// define limits for servo outputs
+const Range fuelServoLimit  { 0, 180 };
+const Range tempServoLimit  { 0, 180 };
+const Range oilServoLimit   { 0, 180 };
+
+// define limits for LED strip brightness
+const Range LEDStripBrightnessLimit { 5, 255 };
 
 // LED assignments across the dash. numbers favor left to right reading
 namespace DashLED {
@@ -205,9 +214,9 @@ typedef struct DashState {
   // This is also where we set the calibration data for the servos
   DashState(DashSupport ds):
     support(ds),
-    fuelGauge(SlavePin::Values::fuelServo, 0, 1023, 0, 180),
-    tempGauge(SlavePin::Values::tempServo, 0, 1023, 0, 180),
-    oilGauge( SlavePin::Values::oilServo,  0, 1023, 0, 180)
+    fuelGauge(SlavePin::Values::fuelServo, fuelSenderLimit, fuelServoLimit),
+    tempGauge(SlavePin::Values::tempServo, tempSenderLimit, tempServoLimit),
+    oilGauge( SlavePin::Values::oilServo,  oilSenderLimit,  oilServoLimit)
   {}
 
   // accept a message from I2C
@@ -244,7 +253,7 @@ typedef struct DashState {
     oilGauge.setup();
 
     support.fastLed->addLeds<LED_TYPE, SlavePin::Values::ledStrip, COLOR_ORDER>(leds, NUM_DASH_LEDS).setCorrection(TypicalLEDStrip);
-    support.fastLed->setBrightness(MAX_BRIGHTNESS);   // TODO
+    support.fastLed->setBrightness(LEDStripBrightnessLimit.max);   // TODO
   }
 
   // apply the internal state to the hardware
@@ -257,25 +266,26 @@ typedef struct DashState {
 
     // here are the things we have to make sense of
     // TODO: delete the list when everything's crossed off it
-    nextState.tachometerCritical;
-    nextState.tachometerWarning;
     nextState.ignition;
     nextMessage.getBit(MasterSignal::Values::scrollPresetColours);
     nextMessage.getBit(MasterSignal::Values::scrollBrightness);
 
-    // set the servos
+    // update the servos
     fuelGauge.write(nextState.fuelLevel);
     tempGauge.write(nextState.temperatureLevel);
     oilGauge.write(nextState.oilPressureLevel);
 
-    // set the scroll CAN button state
+    // update the scroll CAN button state
     support.digitalWrite(SlavePin::Values::scrollCAN, nextState.scrollCAN ? HIGH : LOW);
 
     // update all stateful LEDs from the input
     for (unsigned int i = DASH_LED_MIN; i < NUM_DASH_LEDS; ++i) {
       statefulLeds[i]->loop(millis, nextMessage, nextState);
     }
-    support.fastLed->setBrightness(nextState.backlightDim ? MID_BRIGHTNESS : MAX_BRIGHTNESS); // not sure if there is a way (or a need) to do this per-LED
+
+    // update the overall LED strip brightness according to dimmer signal
+    const int dimmed = (LEDStripBrightnessLimit.max - LEDStripBrightnessLimit.min) / 2;
+    support.fastLed->setBrightness(nextState.backlightDim ? dimmed : LEDStripBrightnessLimit.max);
     support.fastLed->show();
 
     // keep 1 step's worth of history
