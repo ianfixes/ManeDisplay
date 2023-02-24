@@ -217,7 +217,7 @@ class AirCondLED : public SimpleLED {
 public:
   AirCondLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_BLUE) {}
 
-  virtual bool isOn(unsigned long /* millis */, const DashMessage & msg, const SlaveState & /* slave */) {
+  virtual bool isOn(unsigned long /* millis */, const DashMessage & msg, const SlaveState & /* slave */) override {
     return msg.getBit(MasterSignal::Values::acOn);
   }
 };
@@ -227,7 +227,7 @@ class HeatedRearWindowLED : public SimpleLED {
 public:
   HeatedRearWindowLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_YELLOW) {}
 
-  virtual bool isOn(unsigned long /* millis */, const DashMessage & msg, const SlaveState & /* slave */) {
+  virtual bool isOn(unsigned long /* millis */, const DashMessage & msg, const SlaveState & /* slave */) override {
     return msg.getBit(MasterSignal::Values::heatedRearWindowOn);
   }
 };
@@ -237,7 +237,7 @@ class HazardLED : public SimpleLED {
 public:
   HazardLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_WHITE) {}
 
-  virtual bool isOn(unsigned long /* millis */, const DashMessage & msg, const SlaveState & /* slave */) {
+  virtual bool isOn(unsigned long /* millis */, const DashMessage & msg, const SlaveState & /* slave */) override {
     return !msg.getBit(MasterSignal::Values::hazardOff);
   }
 };
@@ -247,7 +247,7 @@ class RearFoggerLED : public SimpleLED {
 public:
   RearFoggerLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_AMBER) {}
 
-  virtual bool isOn(unsigned long /* millis */, const DashMessage & msg, const SlaveState & /* slave */) {
+  virtual bool isOn(unsigned long /* millis */, const DashMessage & msg, const SlaveState & /* slave */) override {
     return msg.getBit(MasterSignal::Values::rearFoggerOn);
   }
 };
