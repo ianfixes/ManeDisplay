@@ -161,8 +161,6 @@ const LEDPosition ledPosition[NUM_DASH_LEDS] = {
 typedef struct DashState {
   DashSupport support;
   bool inBootSequence;
-  DashMessage lastMessage;
-  DashMessage nextMessage;
   SlaveState lastState;
   SlaveState nextState;
 
@@ -220,8 +218,8 @@ typedef struct DashState {
   {}
 
   // accept a message from I2C
-  void setMessage(DashMessage dm) {
-    nextMessage = dm;
+  void setMessage(DashMessage const &dm) {
+    nextState.setMasterSignals(dm);
   }
 
   // accept a hardware state
@@ -229,7 +227,7 @@ typedef struct DashState {
     nextState = state;
   }
 
-  bool processBootSequence(unsigned long nMillis) {
+  bool processBootSequence(unsigned long const &nMillis) {
     // test the gauge ranges.  for safety, just halfway for now
     fuelGauge.write(500);
     tempGauge.write(500);
@@ -257,7 +255,10 @@ typedef struct DashState {
   }
 
   // apply the internal state to the hardware
-  void apply(unsigned long nMillis) {
+  void apply(unsigned long const &nMillis) {
+    // try to keep the async 2wire receiver from interfering
+    lastState = nextState;
+
     // perform boot sequence -- lighting check -- until sequence claims completion
     if (inBootSequence) {
       inBootSequence = processBootSequence(nMillis);
@@ -266,31 +267,28 @@ typedef struct DashState {
 
     // here are the things we have to make sense of
     // TODO: delete the list when everything's crossed off it
-    nextState.ignition;
-    nextMessage.getBit(MasterSignal::Values::scrollPresetColours);
-    nextMessage.getBit(MasterSignal::Values::scrollBrightness);
+    lastState.ignition;
+    lastState.getMasterSignal(MasterSignal::Values::scrollPresetColours);
+    lastState.getMasterSignal(MasterSignal::Values::scrollBrightness);
 
     // update the servos
-    fuelGauge.write(nextState.fuelLevel);
-    tempGauge.write(nextState.temperatureLevel);
-    oilGauge.write(nextState.oilPressureLevel);
+    fuelGauge.write(lastState.fuelLevel);
+    tempGauge.write(lastState.temperatureLevel);
+    oilGauge.write(lastState.oilPressureLevel);
 
     // update the scroll CAN button state
-    support.digitalWrite(SlavePin::Values::scrollCAN, nextState.scrollCAN ? HIGH : LOW);
+    support.digitalWrite(SlavePin::Values::scrollCAN, lastState.scrollCAN ? HIGH : LOW);
 
     // update all stateful LEDs from the input
     for (unsigned int i = DASH_LED_MIN; i < NUM_DASH_LEDS; ++i) {
-      statefulLeds[i]->loop(millis, nextMessage, nextState);
+      statefulLeds[i]->loop(millis, lastState);
     }
 
     // update the overall LED strip brightness according to dimmer signal
     const int dimmed = (LEDStripBrightnessLimit.max - LEDStripBrightnessLimit.min) / 2;
-    support.fastLed->setBrightness(nextState.backlightDim ? dimmed : LEDStripBrightnessLimit.max);
+    support.fastLed->setBrightness(lastState.backlightDim ? dimmed : LEDStripBrightnessLimit.max);
     support.fastLed->show();
 
-    // keep 1 step's worth of history
-    lastState = nextState;
-    lastMessage = nextMessage;
   }
 
 } DashState;

@@ -108,7 +108,7 @@ typedef struct DashMessage {
   }
 
   // read input from I2C
-  void setFromWire(TwoWire wire) {
+  void setFromWire(TwoWire &wire) {
     if (wire.available() < (int)WIRE_PROTOCOL_MESSAGE_LENGTH) {
       setError();
     } else {

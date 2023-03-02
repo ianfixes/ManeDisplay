@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include <Servo.h>
+#include "DashMessage.h"
 
 /**
  * This file defines some of the properties of the slave board
@@ -40,6 +41,23 @@ typedef struct SlaveState {
   int fuelLevel;
   int temperatureLevel;
   int oilPressureLevel;
+
+  DashMessage masterMessage;
+
+  // get a single bit from the master signals
+  inline void setMasterSignals(DashMessage const &m) {
+    masterMessage = m;
+  }
+
+  // get a single bit from the master signals
+  inline void setMasterSignalsFromWire(TwoWire &wire) {
+    masterMessage.setFromWire(wire);
+  }
+
+  // get a single bit from the master signals
+  inline bool getMasterSignal(MasterSignal::Values position) const {
+    return masterMessage.getBit(position);
+  }
 
   // Best if we keep the necessary setup for all the pins in this class,
   // since it needs to agree with the code that reads from those pins

@@ -182,6 +182,26 @@ unittest(payload_from_digitalread)
 }
 
 
+unittest(dashmessage_assignment)
+{
+  // validate that the assignment operator works)
+  fakePins = 0b0101010101010101;
+  DashMessage a(fakeDigitalRead);
+  DashMessage d = a;
+
+  assertEqual(MasterSignal::Values::boostWarning         % 2, d.getBit(MasterSignal::Values::boostWarning));
+  assertEqual(MasterSignal::Values::boostCritical        % 2, d.getBit(MasterSignal::Values::boostCritical));
+  assertEqual(MasterSignal::Values::acOn                 % 2, d.getBit(MasterSignal::Values::acOn));
+  assertEqual(MasterSignal::Values::heatedRearWindowOn   % 2, d.getBit(MasterSignal::Values::heatedRearWindowOn));
+  assertEqual(MasterSignal::Values::hazardOff            % 2, d.getBit(MasterSignal::Values::hazardOff));
+  assertEqual(MasterSignal::Values::rearFoggerOn         % 2, d.getBit(MasterSignal::Values::rearFoggerOn));
+  assertEqual(MasterSignal::Values::scrollCAN            % 2, d.getBit(MasterSignal::Values::scrollCAN));
+  assertEqual(MasterSignal::Values::scrollPresetColours  % 2, d.getBit(MasterSignal::Values::scrollPresetColours));
+  assertEqual(MasterSignal::Values::scrollRainbowEffects % 2, d.getBit(MasterSignal::Values::scrollRainbowEffects));
+  assertEqual(MasterSignal::Values::scrollBrightness     % 2, d.getBit(MasterSignal::Values::scrollBrightness));
+}
+
+
 unittest(sent_payload)
 {
   // validate that we can send a message onto the wire

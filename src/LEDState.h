@@ -1,7 +1,6 @@
 #pragma once
 
 #include "SlaveProperties.h"
-#include "DashMessage.h"
 #include <FastLED.h>
 
 // Stateful LED behaviors
@@ -45,10 +44,10 @@ const struct CRGB COLOR_AMBER  = CRGB((uint32_t)0xFFBF00);
 class LEDState {
 public:
   // what to do with the LED in this state, on one tick
-  virtual void loop(struct CRGB* led, unsigned long millis) = 0;
+  virtual void loop(struct CRGB* led, unsigned long const &millis) = 0;
 
   // whether the state is expired.  by default, it's always time to reevaulate
-  virtual bool isExpired(unsigned long /* millis */) const { return true; }
+  virtual bool isExpired(unsigned long const & /* millis */) const { return true; }
 };
 
 // a state to just show a solid color.  The color is provided on init of the state
@@ -62,7 +61,7 @@ public:
 
   // the state just applies the saved color.
   // TODO: we could consider rapidly fading toward this color from whatever color was currently being displayed
-  virtual void loop(struct CRGB* led, unsigned long /* millis */) {
+  virtual void loop(struct CRGB* led, unsigned long const & /* millis */) {
     *led = m_color; // TODO: see if there's a FastLED method for doing this more natively
   }
 
@@ -89,7 +88,7 @@ public:
   }
 
   // state is expired when the flash period is not in the desired half
-  virtual bool isExpired(unsigned long millis) const override {
+  virtual bool isExpired(unsigned long const &millis) const override {
     // mod the time that the flash mode has been active by the flash period and determine which half we're in
     return activeOnFirstHalf() == ((millis - m_startTime) % (FLASH_DURATION_MS * 2) < FLASH_DURATION_MS);
   }
@@ -126,7 +125,7 @@ public:
 
   RainbowState(int numLEDs, int index) : LEDState(), m_numLEDs(numLEDs), m_index(index) {}
 
-  virtual void loop(struct CRGB* led, unsigned long millis) override {
+  virtual void loop(struct CRGB* led, unsigned long const &millis) override {
     // make the hue and brightness become functions of time.
     const int hue = ((millis / 70) + (m_index * (255 / m_numLEDs))) % 255;
 
@@ -164,11 +163,11 @@ public:
   }
 
   // what state to pick next
-  virtual LEDState* chooseNextState(unsigned long millis, const DashMessage &msg, const SlaveState &slave) = 0;
+  virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) = 0;
 
-  void loop(unsigned long millis, const DashMessage &msg, const SlaveState &slave) {
+  void loop(unsigned long const &millis, const SlaveState &slave) {
     if (m_currentState == nullptr || m_currentState->isExpired(millis)) {
-      m_currentState = chooseNextState(millis, msg, slave);
+      m_currentState = chooseNextState(millis, slave);
     }
 
     m_currentState->loop(m_leds + m_index, millis); // "m_leds + index" is just "&m_leds[index]"
@@ -194,16 +193,16 @@ public:
     SimpleLED(leds, numLEDs, index, rgb2hsv_approximate(color)) {}
 
   // the master signal for rainbow mode overrides all others
-  virtual LEDState* chooseNextState(unsigned long millis, const DashMessage &msg, const SlaveState &slave) {
-    if (msg.getBit(MasterSignal::Values::scrollRainbowEffects)) {
+  virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
+    if (slave.getMasterSignal(MasterSignal::Values::scrollRainbowEffects)) {
       return &m_stRainbow;
     } else {
-      return isOn(millis, msg, slave) ? &m_stOn : &m_stOff;
+      return isOn(millis, slave) ? &m_stOn : &m_stOff;
     }
   }
 
   // by default, always on
-  virtual bool isOn(unsigned long /* millis */, const DashMessage & /* msg */, const SlaveState & /* slave */) { return true; }
+  virtual bool isOn(unsigned long const & /* millis */, const SlaveState & /* slave */) { return true; }
 };
 
 // an illumination LED is the "vanilla" tone of the whole dash
@@ -217,8 +216,8 @@ class AirCondLED : public SimpleLED {
 public:
   AirCondLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_BLUE) {}
 
-  virtual bool isOn(unsigned long /* millis */, const DashMessage & msg, const SlaveState & /* slave */) override {
-    return msg.getBit(MasterSignal::Values::acOn);
+  virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
+    return slave.getMasterSignal(MasterSignal::Values::acOn);
   }
 };
 
@@ -227,8 +226,8 @@ class HeatedRearWindowLED : public SimpleLED {
 public:
   HeatedRearWindowLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_YELLOW) {}
 
-  virtual bool isOn(unsigned long /* millis */, const DashMessage & msg, const SlaveState & /* slave */) override {
-    return msg.getBit(MasterSignal::Values::heatedRearWindowOn);
+  virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
+    return slave.getMasterSignal(MasterSignal::Values::heatedRearWindowOn);
   }
 };
 
@@ -237,8 +236,8 @@ class HazardLED : public SimpleLED {
 public:
   HazardLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_WHITE) {}
 
-  virtual bool isOn(unsigned long /* millis */, const DashMessage & msg, const SlaveState & /* slave */) override {
-    return !msg.getBit(MasterSignal::Values::hazardOff);
+  virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
+    return !slave.getMasterSignal(MasterSignal::Values::hazardOff);
   }
 };
 
@@ -247,8 +246,8 @@ class RearFoggerLED : public SimpleLED {
 public:
   RearFoggerLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_AMBER) {}
 
-  virtual bool isOn(unsigned long /* millis */, const DashMessage & msg, const SlaveState & /* slave */) override {
-    return msg.getBit(MasterSignal::Values::rearFoggerOn);
+  virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
+    return slave.getMasterSignal(MasterSignal::Values::rearFoggerOn);
   }
 };
 
@@ -275,7 +274,7 @@ public:
   {}
 
   // conditionally seed the flash states' timing
-  void seedFlashTiming(unsigned long millis) {
+  void seedFlashTiming(unsigned long const &millis) {
     // if we're not in one of the non-flash states, then keep the flash seed as it is.
     // this ensures that we won't restart blinking while already blinking
     if (inInitialState() || inState(m_stRainbow) || inState(m_stSolid)) {
@@ -287,18 +286,18 @@ public:
   }
 
   // indications for warnings and critical states
-  virtual bool isWarning(unsigned long millis, const DashMessage &msg, const SlaveState &slave) const = 0;
-  virtual bool isCritical(unsigned long millis, const DashMessage &msg, const SlaveState &slave) const = 0;
+  virtual bool isWarning(unsigned long const &millis, const SlaveState &slave) const = 0;
+  virtual bool isCritical(unsigned long const &millis, const SlaveState &slave) const = 0;
 
   // what state to pick next
-  virtual LEDState* chooseNextState(unsigned long millis, const DashMessage &msg, const SlaveState &slave) {
-    if (msg.getBit(MasterSignal::Values::scrollRainbowEffects)) {
+  virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
+    if (slave.getMasterSignal(MasterSignal::Values::scrollRainbowEffects)) {
       return &m_stRainbow;
-    } else if (isCritical(millis, msg, slave))  {
+    } else if (isCritical(millis, slave))  {
       seedFlashTiming(millis);
       // loud states must transition to quiet to complete the blink. all others go loud immediately
       return (inState(m_stFlashRedLoud) || inState(m_stFlashAmberLoud)) ? (LEDState*)&m_stFlashRedQuiet : (LEDState*)&m_stFlashRedLoud;
-    } else if (isWarning(millis, msg, slave))  {
+    } else if (isWarning(millis, slave))  {
       seedFlashTiming(millis);
       // loud states must transition to quiet to complete the blink. all others go loud immediately
       return (inState(m_stFlashRedLoud) || inState(m_stFlashAmberLoud)) ? (LEDState*)&m_stFlashAmberQuiet : (LEDState*)&m_stFlashAmberLoud;
@@ -313,11 +312,11 @@ class BoostLED : public BlinkingLED {
 public:
   BoostLED(struct CRGB* leds, int numLEDs, int index) : BlinkingLED(leds, numLEDs, index) {}
 
-  virtual bool isWarning(unsigned long /* millis */, const DashMessage &msg, const SlaveState & /* slave */) const override {
-    return msg.getBit(MasterSignal::Values::boostWarning);
+  virtual bool isWarning(unsigned long const & /* millis */, const SlaveState &slave) const override {
+    return slave.getMasterSignal(MasterSignal::Values::boostWarning);
   }
-  virtual bool isCritical(unsigned long /* millis */, const DashMessage &msg, const SlaveState & /* slave */) const override {
-    return msg.getBit(MasterSignal::Values::boostCritical);
+  virtual bool isCritical(unsigned long const & /* millis */, const SlaveState &slave) const override {
+    return slave.getMasterSignal(MasterSignal::Values::boostCritical);
   }
 };
 
@@ -325,10 +324,10 @@ class TachLED : public BlinkingLED {
 public:
   TachLED(struct CRGB* leds, int numLEDs, int index) : BlinkingLED(leds, numLEDs, index) {}
 
-  virtual bool isWarning(unsigned long /* millis */, const DashMessage & /* msg */, const SlaveState &slave) const override {
+  virtual bool isWarning(unsigned long const & /* millis */, const SlaveState &slave) const override {
     return slave.tachometerWarning;
   }
-  virtual bool isCritical(unsigned long /* millis */, const DashMessage & /* msg */, const SlaveState &slave) const override {
+  virtual bool isCritical(unsigned long const & /* millis */, const SlaveState &slave) const override {
     return slave.tachometerCritical;
   }
 
