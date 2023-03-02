@@ -1,5 +1,8 @@
 #include <ArduinoUnitTests.h>
 #include <Wire.h>
+
+// TODO: need to define this in arduino_ci
+typedef unsigned char pin_size_t;
 #include "../src/DashMessage.h"
 
 

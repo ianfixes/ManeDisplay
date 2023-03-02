@@ -55,7 +55,7 @@ typedef struct SlaveState {
   }
 
   // read payload from digital input pins into the fields of this struct
-  void setFromPins(int (*myDigitalRead)(unsigned char), int (*myAnalogRead)(unsigned char)) {
+  void setFromPins(int (*myDigitalRead)(pin_size_t), int (*myAnalogRead)(pin_size_t)) {
     scrollCAN          = myDigitalRead(SlavePin::Values::scrollCAN);
     backlightDim       = myDigitalRead(SlavePin::Values::backlightDim);
     tachometerCritical = myDigitalRead(SlavePin::Values::tachometerCritical);
@@ -68,7 +68,7 @@ typedef struct SlaveState {
   }
 
   // shortcut: construct directly from the pin states
-  SlaveState(int (*myDigitalRead)(unsigned char), int (*myAnalogRead)(unsigned char)) {
+  SlaveState(int (*myDigitalRead)(pin_size_t), int (*myAnalogRead)(pin_size_t)) {
     setFromPins(myDigitalRead, myAnalogRead);
   }
 
