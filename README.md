@@ -82,6 +82,7 @@ void loop() {
 }
 ```
 
+The `CalibratedServo` also contains the member functions `.writeMin()` and `.writeMax()` to quickly set them to their limits.
 
 ### `MasterProperties.h` - for defining the input configuration
 

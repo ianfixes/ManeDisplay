@@ -34,6 +34,16 @@ typedef struct CalibratedServo {
     servo.write(outputPosition);
   }
 
+  // set the minimum position
+  inline void writeMin() {
+    servo.write(outputRange.min);
+  }
+
+  // set the maximum position
+  inline void writeMax() {
+    servo.write(outputRange.max);
+  }
+
   // the constructor is just delegating all the values to the member constructors
   CalibratedServo(
     unsigned char servoPin,
