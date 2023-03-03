@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include <Servo.h>
+#include "DashMessage.h"
 
 /**
  * This file defines some of the properties of the slave board
@@ -41,6 +42,23 @@ typedef struct SlaveState {
   int temperatureLevel;
   int oilPressureLevel;
 
+  DashMessage masterMessage;
+
+  // get a single bit from the master signals
+  inline void setMasterSignals(DashMessage const &m) {
+    masterMessage = m;
+  }
+
+  // get a single bit from the master signals
+  inline void setMasterSignalsFromWire(TwoWire &wire) {
+    masterMessage.setFromWire(wire);
+  }
+
+  // get a single bit from the master signals
+  inline bool getMasterSignal(MasterSignal::Values position) const {
+    return masterMessage.getBit(position);
+  }
+
   // Best if we keep the necessary setup for all the pins in this class,
   // since it needs to agree with the code that reads from those pins
   static void setup(void (*myPinMode)(pin_size_t, int)) {
@@ -55,7 +73,7 @@ typedef struct SlaveState {
   }
 
   // read payload from digital input pins into the fields of this struct
-  void setFromPins(int (*myDigitalRead)(unsigned char), int (*myAnalogRead)(unsigned char)) {
+  void setFromPins(int (*myDigitalRead)(pin_size_t), int (*myAnalogRead)(pin_size_t)) {
     scrollCAN          = myDigitalRead(SlavePin::Values::scrollCAN);
     backlightDim       = myDigitalRead(SlavePin::Values::backlightDim);
     tachometerCritical = myDigitalRead(SlavePin::Values::tachometerCritical);
@@ -68,7 +86,7 @@ typedef struct SlaveState {
   }
 
   // shortcut: construct directly from the pin states
-  SlaveState(int (*myDigitalRead)(unsigned char), int (*myAnalogRead)(unsigned char)) {
+  SlaveState(int (*myDigitalRead)(pin_size_t), int (*myAnalogRead)(pin_size_t)) {
     setFromPins(myDigitalRead, myAnalogRead);
   }
 

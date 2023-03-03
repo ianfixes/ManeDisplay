@@ -82,6 +82,7 @@ void loop() {
 }
 ```
 
+The `CalibratedServo` also contains the member functions `.writeMin()` and `.writeMax()` to quickly set them to their limits.
 
 ### `MasterProperties.h` - for defining the input configuration
 
@@ -169,7 +170,7 @@ And by the receiver as follows:
 
 ### `SlaveProperties.h` - for defining input and output configuration
 
-This is the file that gives names to the pins and the "signals" of the slave board -- it translates the physical state of the input data to a software object.  So if pin assignments are added or changed, this is where that is reflected.
+This is the file that gives names to the pins and the "signals" of the slave board -- it translates the physical state of the input data to a software object.  So if pin assignments are added or changed, this is where that is reflected.  It also wraps a DashMessage object to carry the received data from the master.
 
 ```c++
 namespace SlavePin {
@@ -214,6 +215,7 @@ The state can be read simply:
 ```c++
   SlaveState state(digitalRead, analogRead);  // yes, the functions themselves are passed as arguments.
   state.kettleIsOn; // access a value
+  state.getMasterSignal(MasterPin::Values::dragChuteDeployed); // access a value from the message
 ```
 
 
@@ -245,8 +247,8 @@ public:
   DragChuteLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_RED) {}
 
   // override the isOn criteria to respond to the specific signal this LED represents
-  virtual bool isOn(unsigned long millis, const DashMessage &msg, const SlaveState &slave) override {
-    return msg.getBit(MasterSignal::Values::dragChuteDeployed);
+  virtual bool isOn(unsigned long millis, const SlaveState &slave) override {
+    return slave.getMasterSignal(MasterSignal::Values::dragChuteDeployed);
   }
 };
 ```

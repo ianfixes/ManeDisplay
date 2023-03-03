@@ -32,6 +32,10 @@ const Range oilServoLimit   { 0, 180 };
 
 // define limits for LED strip brightness
 const Range LEDStripBrightnessLimit { 5, 255 };
+const int dimBrightnessLevel = (LEDStripBrightnessLimit.max - LEDStripBrightnessLimit.min) / 2;
+
+const unsigned int ARDUINO_BOOT_ANIMATION_MS = 2000; // amount of time that we can use to do a bootup sequence
+const unsigned int ARDUINO_SOFT_SHUTDOWN_MS = 3000; // amount of time that we can use to do a soft shutdown
 
 // LED assignments across the dash. numbers favor left to right reading
 namespace DashLED {
@@ -160,9 +164,6 @@ const LEDPosition ledPosition[NUM_DASH_LEDS] = {
 // apply that output.
 typedef struct DashState {
   DashSupport support;
-  bool inBootSequence;
-  DashMessage lastMessage;
-  DashMessage nextMessage;
   SlaveState lastState;
   SlaveState nextState;
 
@@ -171,6 +172,9 @@ typedef struct DashState {
   CalibratedServo fuelGauge;
   CalibratedServo tempGauge;
   CalibratedServo oilGauge;
+
+  unsigned long bootStartTime;
+  unsigned long ignitionLastOnTime;
 
   // can't declare an array of abstract classes, so declare an array
   // of pointers to those abstract classes.  hence the use of "new".
@@ -216,12 +220,14 @@ typedef struct DashState {
     support(ds),
     fuelGauge(SlavePin::Values::fuelServo, fuelSenderLimit, fuelServoLimit),
     tempGauge(SlavePin::Values::tempServo, tempSenderLimit, tempServoLimit),
-    oilGauge( SlavePin::Values::oilServo,  oilSenderLimit,  oilServoLimit)
+    oilGauge( SlavePin::Values::oilServo,  oilSenderLimit,  oilServoLimit),
+    bootStartTime(0),
+    ignitionLastOnTime(0)
   {}
 
   // accept a message from I2C
-  void setMessage(DashMessage dm) {
-    nextMessage = dm;
+  void setMessage(DashMessage const &dm) {
+    nextState.setMasterSignals(dm);
   }
 
   // accept a hardware state
@@ -229,19 +235,53 @@ typedef struct DashState {
     nextState = state;
   }
 
-  bool processBootSequence(unsigned long nMillis) {
-    // test the gauge ranges.  for safety, just halfway for now
-    fuelGauge.write(500);
-    tempGauge.write(500);
-    oilGauge.write(500);
+  // measure the time since the first measured time
+  inline bool inBootSequence(unsigned long const &nMillis) const {
+    return (nMillis - bootStartTime) < ARDUINO_BOOT_ANIMATION_MS;
+  }
 
-    return nMillis > 3000;
+  // scripted startup animation
+  void processBootSequence(unsigned long const &nMillis) {
+    // turn up the gauges all the way to show that they work
+    fuelGauge.writeMax();
+    tempGauge.writeMax();
+    oilGauge.writeMax();
+
+    // linearly ramp up the backlight brightness over the boot time
+    const int initialBrightness = lastState.backlightDim ? dimBrightnessLevel : LEDStripBrightnessLimit.max;
+    const int rampedBrightness = map(nMillis - bootStartTime,
+      0, ARDUINO_BOOT_ANIMATION_MS,
+      LEDStripBrightnessLimit.min, initialBrightness
+    );
+    support.fastLed->setBrightness(rampedBrightness);
+    support.fastLed->show();
+  }
+
+  // scripted shutdown animation
+  void processShutdownSequence(unsigned long const &nMillis) {
+    // linearly ramp down the backlight brightness over the soft shutdown time
+    const int initialBrightness = lastState.backlightDim ? dimBrightnessLevel : LEDStripBrightnessLimit.max;
+    const int rampedBrightness = map(ARDUINO_SOFT_SHUTDOWN_MS - (nMillis - ignitionLastOnTime),
+      0, ARDUINO_SOFT_SHUTDOWN_MS,
+      LEDStripBrightnessLimit.min, initialBrightness
+    );
+    support.fastLed->setBrightness(rampedBrightness);
+    support.fastLed->show();
+
+    // park all servos
+    fuelGauge.writeMin();
+    tempGauge.writeMin();
+    oilGauge.writeMin();
+  }
+
+  // decide whether the optocoupler should be employed based on time and ignition state
+  inline bool shouldUseOpto(bool ignitionIsOn, unsigned long const &nMillis) const {
+    if (ignitionIsOn) return false; // explictly make sure that we never never cross the streams
+    return (nMillis - ignitionLastOnTime) < ARDUINO_SOFT_SHUTDOWN_MS;
   }
 
   // perform all hardware setup and software state init for this board
   void setup() {
-    inBootSequence = true;
-
     // configure inputs
     SlaveState::setup(support.pinMode);
 
@@ -253,44 +293,55 @@ typedef struct DashState {
     oilGauge.setup();
 
     support.fastLed->addLeds<LED_TYPE, SlavePin::Values::ledStrip, COLOR_ORDER>(leds, NUM_DASH_LEDS).setCorrection(TypicalLEDStrip);
-    support.fastLed->setBrightness(LEDStripBrightnessLimit.max);   // TODO
   }
 
   // apply the internal state to the hardware
-  void apply(unsigned long nMillis) {
-    // perform boot sequence -- lighting check -- until sequence claims completion
-    if (inBootSequence) {
-      inBootSequence = processBootSequence(nMillis);
+  void apply(unsigned long const &nMillis) {
+    // DATA SAFETY SECTION: ensure state data isn't corrupted
+    lastState = nextState; // try to keep the async 2wire receiver from interfering with current state
+    if (0 == bootStartTime) bootStartTime = nMillis; // get a real measure of boot start time
+
+
+    // TODO: delete the list when everything's crossed off it
+    // here are the things we have to make sense of
+    lastState.getMasterSignal(MasterSignal::Values::scrollPresetColours);
+    lastState.getMasterSignal(MasterSignal::Values::scrollBrightness);
+
+
+    // EXISTENTIAL SECTION: ensure board is powered when we want power
+    digitalWrite(SlavePin::Values::optoCoupler, shouldUseOpto(lastState.ignition, nMillis));
+
+    // GRACEFUL EXIT SECTION: perform shutdown animation/tasks if we're in shutdown, and nothing more
+    if (!lastState.ignition) {
+      processShutdownSequence(nMillis);
       return;
     }
 
-    // here are the things we have to make sense of
-    // TODO: delete the list when everything's crossed off it
-    nextState.ignition;
-    nextMessage.getBit(MasterSignal::Values::scrollPresetColours);
-    nextMessage.getBit(MasterSignal::Values::scrollBrightness);
-
-    // update the servos
-    fuelGauge.write(nextState.fuelLevel);
-    tempGauge.write(nextState.temperatureLevel);
-    oilGauge.write(nextState.oilPressureLevel);
-
+    // STUFF ALLOWED DURING BOOT SECTION:
     // update the scroll CAN button state
-    support.digitalWrite(SlavePin::Values::scrollCAN, nextState.scrollCAN ? HIGH : LOW);
+    support.digitalWrite(SlavePin::Values::scrollCAN, lastState.scrollCAN ? HIGH : LOW);
 
-    // update all stateful LEDs from the input
+    // update all stateful LEDs from the input. this will mean they're always the right hue
     for (unsigned int i = DASH_LED_MIN; i < NUM_DASH_LEDS; ++i) {
-      statefulLeds[i]->loop(millis, nextMessage, nextState);
+      statefulLeds[i]->loop(millis, lastState);
     }
 
-    // update the overall LED strip brightness according to dimmer signal
-    const int dimmed = (LEDStripBrightnessLimit.max - LEDStripBrightnessLimit.min) / 2;
-    support.fastLed->setBrightness(nextState.backlightDim ? dimmed : LEDStripBrightnessLimit.max);
-    support.fastLed->show();
+    // BOOT SEQUENCE SECTION: perform boot animation if we're in boot, and nothing more
+    if (inBootSequence(nMillis)) {
+      processBootSequence(nMillis);
+      return;
+    }
 
-    // keep 1 step's worth of history
-    lastState = nextState;
-    lastMessage = nextMessage;
+    // STEADY STATE SECTION: from here on out, behave normally.
+
+    // update the servos
+    fuelGauge.write(lastState.fuelLevel);
+    tempGauge.write(lastState.temperatureLevel);
+    oilGauge.write(lastState.oilPressureLevel);
+
+    // update the overall LED strip brightness according to dimmer signal
+    support.fastLed->setBrightness(lastState.backlightDim ? dimBrightnessLevel : LEDStripBrightnessLimit.max);
+    support.fastLed->show();
   }
 
 } DashState;
