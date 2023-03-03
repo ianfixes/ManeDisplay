@@ -38,7 +38,7 @@ void d3Loop(unsigned long nMillis) {
 
 int morseState = 0;
 
-void receiveMorse(int bytes) {
+void receiveMorse(int /* bytes */) {
   DashMessage d;
   // consume all available messages
   while (Wire.available() >= WIRE_PROTOCOL_MESSAGE_LENGTH) {
@@ -55,7 +55,7 @@ void morseSetup() {
   Wire.onReceive(receiveMorse); // Attach a function to trigger when something is received.
 }
 
-void morseLoop(unsigned long nMillis) {
+void morseLoop(unsigned long /* nMillis */) {
   digitalWrite(SlavePin::Values::ledBuiltin, (morseState == 0 ? LOW : HIGH));  // we may overwrite the same state in each loop, that's OK.
 }
 
@@ -86,7 +86,7 @@ void ledLoop(unsigned long nMillis) {
   int hue        = constrain((nMillis / 70) % 255, MIN_BRIGHTNESS, MAX_BRIGHTNESS);
 
   // set all LEDs to a hue, with each one offset a bit -- should be a rotating rainbow effect
-  for(int i = 0; i < NUM_DASH_LEDS; i++) {
+  for(unsigned int i = 0; i < NUM_DASH_LEDS; i++) {
     // leds[i] = CHSV(hue, 255, 255); // use this line if the below doesn't work
     leds[i] = CHSV((hue + (i * (255 / NUM_DASH_LEDS))) % 255, 255, 255);
   }
