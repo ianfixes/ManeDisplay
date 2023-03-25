@@ -215,7 +215,7 @@ public:
   }
 
   void loop(unsigned long const &millis, const SlaveState &slave) {
-    if (m_currentState == nullptr || m_currentState->isExpired(millis)) {
+    if (inInitialState() || m_currentState->isExpired(millis)) {
       m_currentState = chooseNextState(millis, slave);
     }
 
