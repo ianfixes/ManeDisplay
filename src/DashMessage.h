@@ -6,6 +6,10 @@
 
 const uint8_t SLAVE_I2C_ADDRESS = 9;
 
+#ifndef pin_size_t
+  using pin_size_t = uint8_t;
+#endif
+
 /*
 
 Defining a wire protocol here
