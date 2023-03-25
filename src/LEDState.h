@@ -360,18 +360,18 @@ public:
   }
 
   // indications for warnings and critical states
-  virtual bool isWarning(unsigned long const &millis, const SlaveState &slave) const = 0;
-  virtual bool isCritical(unsigned long const &millis, const SlaveState &slave) const = 0;
+  virtual bool isWarning(const SlaveState &slave) const = 0;
+  virtual bool isCritical(const SlaveState &slave) const = 0;
 
   // what state to pick next
   virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
     if (slave.getMasterSignal(MasterSignal::Values::scrollRainbowEffects)) {
       return &m_stRainbow;
-    } else if (isCritical(millis, slave))  {
+    } else if (isCritical(slave)) {
       seedFlashTiming(millis);
       // loud states must transition to quiet to complete the blink. all others go loud immediately
       return (inState(m_stFlashRedLoud) || inState(m_stFlashAmberLoud)) ? (LEDState*)&m_stFlashRedQuiet : (LEDState*)&m_stFlashRedLoud;
-    } else if (isWarning(millis, slave))  {
+    } else if (isWarning(slave)) {
       seedFlashTiming(millis);
       // loud states must transition to quiet to complete the blink. all others go loud immediately
       return (inState(m_stFlashRedLoud) || inState(m_stFlashAmberLoud)) ? (LEDState*)&m_stFlashAmberQuiet : (LEDState*)&m_stFlashAmberLoud;
@@ -389,10 +389,10 @@ public:
   // string representation of the state name
   inline virtual String name() const { return "Bst"; };
 
-  virtual bool isWarning(unsigned long const & /* millis */, const SlaveState &slave) const override {
+  virtual bool isWarning(const SlaveState &slave) const override {
     return slave.getMasterSignal(MasterSignal::Values::boostWarning);
   }
-  virtual bool isCritical(unsigned long const & /* millis */, const SlaveState &slave) const override {
+  virtual bool isCritical(const SlaveState &slave) const override {
     return slave.getMasterSignal(MasterSignal::Values::boostCritical);
   }
 };
@@ -404,10 +404,10 @@ public:
   // string representation of the state name
   inline virtual String name() const { return "Tach"; };
 
-  virtual bool isWarning(unsigned long const & /* millis */, const SlaveState &slave) const override {
+  virtual bool isWarning(const SlaveState &slave) const override {
     return slave.tachometerWarning;
   }
-  virtual bool isCritical(unsigned long const & /* millis */, const SlaveState &slave) const override {
+  virtual bool isCritical(const SlaveState &slave) const override {
     return slave.tachometerCritical;
   }
 
