@@ -108,8 +108,10 @@ public:
 
   // state is expired when the flash period is not in the desired half
   virtual bool isExpired(unsigned long const &millis) const override {
+    const int elapsedTime = millis - m_startTime;
+    const int totalTime = FLASH_DURATION_MS * 2;
     // mod the time that the flash mode has been active by the flash period and determine which half we're in
-    return activeOnFirstHalf() == ((millis - m_startTime) % (FLASH_DURATION_MS * 2) < FLASH_DURATION_MS);
+    return activeOnFirstHalf() != ((elapsedTime % totalTime) < FLASH_DURATION_MS);
   }
 
   // whether this state should be considered active in the first half of the flash
