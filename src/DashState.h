@@ -295,6 +295,25 @@ typedef struct DashState {
     support.fastLed->addLeds<LED_TYPE, SlavePin::Values::ledStrip, COLOR_ORDER>(leds, NUM_DASH_LEDS).setCorrection(TypicalLEDStrip);
   }
 
+  // convert the dash state to something we can monitor
+  String toString(unsigned long const &nMillis, SlaveState const &slaveState) const {
+    String ret = "[";
+    ret.concat(!slaveState.ignition ? "HALT" : (inBootSequence(nMillis) ? "BOOT" : " OK "));
+    ret.concat("] ");
+    ret.concat(slaveState.toString());
+    return ret;
+  }
+
+  // convert the last dash state to string
+  inline String lastStateString(unsigned long const &nMillis) const {
+    return toString(nMillis, lastState);
+  }
+
+  //convert the next dash state to string
+  inline String nextStateString(unsigned long const &nMillis) const {
+    return toString(nMillis, nextState);
+  }
+
   // apply the internal state to the hardware
   void apply(unsigned long const &nMillis) {
     // DATA SAFETY SECTION: ensure state data isn't corrupted
