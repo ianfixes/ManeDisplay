@@ -232,6 +232,7 @@ typedef struct DashState {
 
   // accept a hardware state
   void setState(SlaveState state) {
+    state.masterMessage = nextState.masterMessage; // carry over current message state
     nextState = state;
   }
 
