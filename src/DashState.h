@@ -17,7 +17,7 @@
  * LED 27 - hazard lights
  */
 
-#define COLOR_ORDER RGB
+#define COLOR_ORDER GRB
 #define LED_TYPE WS2812B       // i'm using WS2811s, FastLED supports lots of different types.
 
 // define limits for sensor inputs
