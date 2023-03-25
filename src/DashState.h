@@ -350,7 +350,7 @@ typedef struct DashState {
 
     // update all stateful LEDs from the input. this will mean they're always the right hue
     for (unsigned int i = DASH_LED_MIN; i < NUM_DASH_LEDS; ++i) {
-      statefulLeds[i]->loop(millis, lastState);
+      statefulLeds[i]->loop(nMillis, lastState);
     }
 
     // BOOT SEQUENCE SECTION: perform boot animation if we're in boot, and nothing more
