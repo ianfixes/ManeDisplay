@@ -302,6 +302,13 @@ typedef struct DashState {
     ret.concat(!slaveState.ignition ? "HALT" : (inBootSequence(nMillis) ? "BOOT" : " OK "));
     ret.concat("] ");
     ret.concat(slaveState.toString());
+
+    // include all stateful LEDs
+    for (unsigned int i = DASH_LED_MIN; i < NUM_DASH_LEDS; ++i) {
+      ret.concat(i % 7 == 0 ? "\n" : " ");
+      ret.concat(statefulLeds[i]->toString(nMillis));
+    }
+
     return ret;
   }
 

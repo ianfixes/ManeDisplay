@@ -48,6 +48,18 @@ public:
 
   // whether the state is expired.  by default, it's always time to reevaulate
   virtual bool isExpired(unsigned long const & /* millis */) const { return true; }
+
+  // string representation
+  virtual String toStringWithParams(unsigned long const & /* millis */) const = 0;
+
+  // string representation
+  virtual String toString(unsigned long const &millis) const {
+    String ret = isExpired(millis) ? "E" : "_";
+    ret.concat("|");
+    ret.concat(toStringWithParams(millis));
+    return ret;
+  }
+
 };
 
 // a state to just show a solid color.  The color is provided on init of the state
@@ -63,6 +75,13 @@ public:
   // TODO: we could consider rapidly fading toward this color from whatever color was currently being displayed
   virtual void loop(struct CRGB* led, unsigned long const & /* millis */) {
     *led = m_color; // TODO: see if there's a FastLED method for doing this more natively
+  }
+
+  // The state data
+  virtual String toStringWithParams(unsigned long const & /* millis */) const {
+    char ret[12];
+    sprintf(ret, "Sld %02X%02X%02X", m_color.h, m_color.s, m_color.v);
+    return String(ret);
   }
 
 private:
@@ -95,6 +114,13 @@ public:
 
   // whether this state should be considered active in the first half of the flash
   virtual bool activeOnFirstHalf() const = 0;
+
+  // The state data
+  virtual String toStringWithParams(unsigned long const & /* millis */) const {
+    char ret[12];
+    sprintf(ret, "Fl%c %02X%02X%02X", (activeOnFirstHalf() ? '1' : '2'), m_color.h, m_color.s, m_color.v);
+    return String(ret);
+  }
 };
 
 // the "loud" period of a flash - when the flashing light is on
@@ -125,11 +151,20 @@ public:
 
   RainbowState(int numLEDs, int index) : LEDState(), m_numLEDs(numLEDs), m_index(index) {}
 
-  virtual void loop(struct CRGB* led, unsigned long const &millis) override {
-    // make the hue and brightness become functions of time.
-    const int hue = ((millis / 70) + (m_index * (255 / m_numLEDs))) % 255;
+  // get the hue as a function of time
+  inline int hue(unsigned long const &millis) const {
+    return ((millis / 5) + (m_index * (255 / m_numLEDs))) % 255;
+  }
 
-    *led = CHSV(hue, 255, 255);
+  virtual void loop(struct CRGB* led, unsigned long const &millis) override {
+    *led = CHSV(hue(millis), 255, 255);
+  }
+
+  // The state data
+  virtual String toStringWithParams(unsigned long const & millis) const {
+    char ret[12];
+    sprintf(ret, "Rnb    %03d", hue(millis));
+    return String(ret);
   }
 };
 
@@ -165,6 +200,20 @@ public:
   // what state to pick next
   virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) = 0;
 
+  // string representation of the state name
+  virtual String name() const = 0;
+
+  // string representation
+  virtual String toString(unsigned long const &millis) const {
+    if (inInitialState()) {
+      return "[Initial]";
+    }
+
+    char ret[40];
+    sprintf(ret, "[%4s %13s]", name().c_str(), m_currentState->toString(millis).c_str());
+    return String(ret);
+  }
+
   void loop(unsigned long const &millis, const SlaveState &slave) {
     if (m_currentState == nullptr || m_currentState->isExpired(millis)) {
       m_currentState = chooseNextState(millis, slave);
@@ -189,8 +238,13 @@ public:
     m_stOff(COLOR_BLACK),
     m_stOn(color)
   {}
+
   SimpleLED(struct CRGB* leds, int numLEDs, int index, const struct CRGB &color) :
-    SimpleLED(leds, numLEDs, index, rgb2hsv_approximate(color)) {}
+    SimpleLED(leds, numLEDs, index, rgb2hsv_approximate(color))
+  {}
+
+  // string representation of the state name
+  inline virtual String name() const { return "Simple"; };
 
   // the master signal for rainbow mode overrides all others
   virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
@@ -209,12 +263,18 @@ public:
 class IlluminationLED : public SimpleLED {
 public:
   IlluminationLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_WHITE) {}
+
+  // string representation of the state name
+  inline virtual String name() const { return "Illu"; };
 };
 
 // control of the AC LED
 class AirCondLED : public SimpleLED {
 public:
   AirCondLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_BLUE) {}
+
+  // string representation of the state name
+  inline virtual String name() const { return "AC"; };
 
   virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
     return slave.getMasterSignal(MasterSignal::Values::acOn);
@@ -226,6 +286,9 @@ class HeatedRearWindowLED : public SimpleLED {
 public:
   HeatedRearWindowLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_YELLOW) {}
 
+  // string representation of the state name
+  inline virtual String name() const { return "Hrw"; };
+
   virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
     return slave.getMasterSignal(MasterSignal::Values::heatedRearWindowOn);
   }
@@ -236,6 +299,9 @@ class HazardLED : public SimpleLED {
 public:
   HazardLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_WHITE) {}
 
+  // string representation of the state name
+  inline virtual String name() const { return "Haz"; };
+
   virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
     return !slave.getMasterSignal(MasterSignal::Values::hazardOff);
   }
@@ -245,6 +311,9 @@ public:
 class RearFoggerLED : public SimpleLED {
 public:
   RearFoggerLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_AMBER) {}
+
+  // string representation of the state name
+  inline virtual String name() const { return "Fog"; };
 
   virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
     return slave.getMasterSignal(MasterSignal::Values::rearFoggerOn);
@@ -272,6 +341,9 @@ public:
     m_stFlashAmberLoud(COLOR_AMBER),
     m_stFlashAmberQuiet(m_stSolid)
   {}
+
+  // string representation of the state name
+  inline virtual String name() const { return "Blinkn"; };
 
   // conditionally seed the flash states' timing
   void seedFlashTiming(unsigned long const &millis) {
@@ -312,6 +384,9 @@ class BoostLED : public BlinkingLED {
 public:
   BoostLED(struct CRGB* leds, int numLEDs, int index) : BlinkingLED(leds, numLEDs, index) {}
 
+  // string representation of the state name
+  inline virtual String name() const { return "Bst"; };
+
   virtual bool isWarning(unsigned long const & /* millis */, const SlaveState &slave) const override {
     return slave.getMasterSignal(MasterSignal::Values::boostWarning);
   }
@@ -323,6 +398,9 @@ public:
 class TachLED : public BlinkingLED {
 public:
   TachLED(struct CRGB* leds, int numLEDs, int index) : BlinkingLED(leds, numLEDs, index) {}
+
+  // string representation of the state name
+  inline virtual String name() const { return "Tach"; };
 
   virtual bool isWarning(unsigned long const & /* millis */, const SlaveState &slave) const override {
     return slave.tachometerWarning;
