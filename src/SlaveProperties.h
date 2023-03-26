@@ -85,6 +85,22 @@ typedef struct SlaveState {
     oilPressureLevel = myAnalogRead(SlavePin::Values::oilInput);
   }
 
+  // make a binary representation of what's in the message
+  String toString() const {
+    String ret = "";
+    ret.concat(ignition           ? "I" : "i");
+    ret.concat(backlightDim       ? "b" : "B");
+    ret.concat(scrollCAN          ? "S" : "s");
+    ret.concat(tachometerCritical ? "C" : (tachometerWarning ? "W" : "_"));
+    ret.concat("\t");
+
+    char buf[16];
+    sprintf(buf, "%04d %04d %04d ", fuelLevel, temperatureLevel, oilPressureLevel);
+    ret.concat(buf);
+    ret.concat(masterMessage.binaryString());
+    return ret;
+  }
+
   // shortcut: construct directly from the pin states
   SlaveState(int (*myDigitalRead)(pin_size_t), int (*myAnalogRead)(pin_size_t)) {
     setFromPins(myDigitalRead, myAnalogRead);

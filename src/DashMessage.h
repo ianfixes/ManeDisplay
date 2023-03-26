@@ -6,6 +6,10 @@
 
 const uint8_t SLAVE_I2C_ADDRESS = 9;
 
+#ifndef pin_size_t
+  using pin_size_t = uint8_t;
+#endif
+
 /*
 
 Defining a wire protocol here
@@ -39,6 +43,11 @@ const byte FIRST_FRAME_MARKER_MASK = 0b10000000;
 typedef struct DashMessage {
   byte rawData[WIRE_PROTOCOL_MESSAGE_LENGTH]; // the underlying data
 
+  // get the maximum amount of bits we can carry based on our length
+  inline unsigned int maxBitPosition() const {
+    return WIRE_PROTOCOL_MESSAGE_LENGTH * 7;
+  }
+
   // extract a single bit
   inline bool getBit(MasterSignal::Values position) const {
     return rawData[position / 7] & (0b00000001 << position % 7);
@@ -51,6 +60,13 @@ typedef struct DashMessage {
       rawData[position / 7] |= mask;
     else
       rawData[position / 7] &= ~mask;
+  }
+
+  // make a binary representation of what's in the message
+  String binaryString() const {
+    String ret = "0b";
+    for (int i = maxBitPosition() - 1; i >= 0; --i) ret.concat(getBit((MasterSignal::Values)i) ? "1" : "0");
+    return ret;
   }
 
   // set an entire byte unconditionally

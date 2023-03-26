@@ -17,7 +17,7 @@
  * LED 27 - hazard lights
  */
 
-#define COLOR_ORDER RGB
+#define COLOR_ORDER GRB
 #define LED_TYPE WS2812B       // i'm using WS2811s, FastLED supports lots of different types.
 
 // define limits for sensor inputs
@@ -232,6 +232,7 @@ typedef struct DashState {
 
   // accept a hardware state
   void setState(SlaveState state) {
+    state.masterMessage = nextState.masterMessage; // carry over current message state
     nextState = state;
   }
 
@@ -295,6 +296,32 @@ typedef struct DashState {
     support.fastLed->addLeds<LED_TYPE, SlavePin::Values::ledStrip, COLOR_ORDER>(leds, NUM_DASH_LEDS).setCorrection(TypicalLEDStrip);
   }
 
+  // convert the dash state to something we can monitor
+  String toString(unsigned long const &nMillis, SlaveState const &slaveState) const {
+    String ret = "[";
+    ret.concat(!slaveState.ignition ? "HALT" : (inBootSequence(nMillis) ? "BOOT" : " OK "));
+    ret.concat("] ");
+    ret.concat(slaveState.toString());
+
+    // include all stateful LEDs
+    for (unsigned int i = DASH_LED_MIN; i < NUM_DASH_LEDS; ++i) {
+      ret.concat(i % 7 == 0 ? "\n" : " ");
+      ret.concat(statefulLeds[i]->toString(nMillis));
+    }
+
+    return ret;
+  }
+
+  // convert the last dash state to string
+  inline String lastStateString(unsigned long const &nMillis) const {
+    return toString(nMillis, lastState);
+  }
+
+  //convert the next dash state to string
+  inline String nextStateString(unsigned long const &nMillis) const {
+    return toString(nMillis, nextState);
+  }
+
   // apply the internal state to the hardware
   void apply(unsigned long const &nMillis) {
     // DATA SAFETY SECTION: ensure state data isn't corrupted
@@ -323,7 +350,7 @@ typedef struct DashState {
 
     // update all stateful LEDs from the input. this will mean they're always the right hue
     for (unsigned int i = DASH_LED_MIN; i < NUM_DASH_LEDS; ++i) {
-      statefulLeds[i]->loop(millis, lastState);
+      statefulLeds[i]->loop(nMillis, lastState);
     }
 
     // BOOT SEQUENCE SECTION: perform boot animation if we're in boot, and nothing more
