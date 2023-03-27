@@ -245,9 +245,6 @@ public:
     SimpleLED(leds, numLEDs, index, rgb2hsv_approximate(color))
   {}
 
-  // string representation of the state name
-  inline virtual String name() const { return "Simple"; };
-
   // the master signal for rainbow mode overrides all others
   virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
     if (slave.getMasterSignal(MasterSignal::Values::scrollRainbowEffects)) {
@@ -326,7 +323,6 @@ public:
 // This class defines a blinking LED that can blink 2 different colors
 class MultiBlinkingLED : public StatefulLED {
 public:
-  RainbowState    m_stRainbow;
   SolidColorState m_stSolid;
   FlashLoudState  m_stFlashRedLoud;
   FlashQuietState m_stFlashRedQuiet;
@@ -338,16 +334,12 @@ public:
 
   MultiBlinkingLED(struct CRGB* leds, int numLEDs, int index) :
     StatefulLED(leds, numLEDs, index),
-    m_stRainbow(numLEDs, index),
     m_stSolid(COLOR_WHITE),
     m_stFlashRedLoud(COLOR_RED),
     m_stFlashRedQuiet(m_stSolid),
     m_stFlashAmberLoud(COLOR_AMBER),
     m_stFlashAmberQuiet(m_stSolid)
   {}
-
-  // string representation of the state name
-  inline virtual String name() const { return "Blinkn"; };
 
   // conditionally seed the flash states' timing
   void seedFlashTiming(unsigned long const &millis) {
