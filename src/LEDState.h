@@ -226,17 +226,49 @@ public:
 };
 
 
+// All Binky LEDs respond to global modes (like rainbow)
+// The local states must be defined as member variables, and a chooseNextLocalState function
+//   chooses which state to point to when it is time to find the next one.  This ensures
+//   we only need to handle global behaviors here.
+class BinkyLED : public StatefulLED {
+public:
+  SolidColorTimedState m_stOn;
+  SolidColorState m_stOff;
+  PartyMode m_partymode;
+  RainbowState m_stRainbow;
+  unsigned long m_canFlashMs;
+
+  BinkyLED(struct CRGB* leds, int numLEDs, int index) :
+    StatefulLED(leds, numLEDs, index),
+    m_stOn(COLOR_WHITE, FLASH_DURATION_MS / 10),
+    m_stOff(COLOR_BLACK),
+    m_partymode(PartyMode::Values::rainbow);
+    m_stRainbow(numLEDs, index),
+    m_canFlashMs(0)
+  {}
+
+  // the master signal for rainbow mode overrides all others
+  virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
+    if (slave.getMasterSignal(MasterSignal::Values::scrollRainbowEffects)) {
+      return &m_stRainbow;
+    } else {
+      return chooseNextLocalState(millis, slave);
+    }
+  }
+
+  // what state to pick next
+  virtual LEDState* chooseNextLocalState(unsigned long const &millis, const SlaveState &slave) = 0;
+};
+
 // A simple LED switches between a solid color mode (on/off) and a rainbow mode
 // the on/off criteria cna be overridden
-class SimpleLED : public StatefulLED {
+class SimpleLED : public BinkyLED {
 public:
-  RainbowState m_stRainbow;
   SolidColorState m_stOff;
   SolidColorState m_stOn;
 
   SimpleLED(struct CRGB* leds, int numLEDs, int index, const struct CHSV &color) :
-    StatefulLED(leds, numLEDs, index),
-    m_stRainbow(numLEDs, index),
+    BinkyLED(leds, numLEDs, index),
     m_stOff(COLOR_BLACK),
     m_stOn(color)
   {}
@@ -246,12 +278,8 @@ public:
   {}
 
   // the master signal for rainbow mode overrides all others
-  virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
-    if (slave.getMasterSignal(MasterSignal::Values::scrollRainbowEffects)) {
-      return &m_stRainbow;
-    } else {
-      return isOn(millis, slave) ? &m_stOn : &m_stOff;
-    }
+  virtual LEDState* chooseNextLocalState(unsigned long const &millis, const SlaveState &slave) {
+    return isOn(millis, slave) ? &m_stOn : &m_stOff;
   }
 
   // by default, always on
@@ -321,7 +349,7 @@ public:
 
 
 // This class defines a blinking LED that can blink 2 different colors
-class MultiBlinkingLED : public StatefulLED {
+class MultiBlinkingLED : public BinkyLED {
 public:
   SolidColorState m_stSolid;
   FlashLoudState  m_stFlashRedLoud;
@@ -333,7 +361,7 @@ public:
   // the solid state can be interrupted at any time
 
   MultiBlinkingLED(struct CRGB* leds, int numLEDs, int index) :
-    StatefulLED(leds, numLEDs, index),
+    BinkyLED(leds, numLEDs, index),
     m_stSolid(COLOR_WHITE),
     m_stFlashRedLoud(COLOR_RED),
     m_stFlashRedQuiet(m_stSolid),
@@ -358,10 +386,8 @@ public:
   virtual bool isCritical(const SlaveState &slave) const = 0;
 
   // what state to pick next
-  virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
-    if (slave.getMasterSignal(MasterSignal::Values::scrollRainbowEffects)) {
-      return &m_stRainbow;
-    } else if (isCritical(slave)) {
+  virtual LEDState* chooseNextLocalState(unsigned long const &millis, const SlaveState &slave) {
+    if (isCritical(slave)) {
       seedFlashTiming(millis);
       // loud states must transition to quiet to complete the blink. all others go loud immediately
       return (inState(m_stFlashRedLoud) || inState(m_stFlashAmberLoud)) ? (LEDState*)&m_stFlashRedQuiet : (LEDState*)&m_stFlashRedLoud;
