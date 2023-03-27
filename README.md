@@ -99,7 +99,7 @@ namespace MasterPin {
 };
 ```
 
-Similarly, the information on the pin is a type of _signal_, and we need a `0`-based list of what signals are coming from the master board.  These will be a direct copy of the pin names, but in a different namespace:
+Similarly, the information on the pin is a type of _signal_, and we want to group together all our signals in a coherent way.  For this, we need a `0`-based list the signals.  These will be a direct copy of the pin names, but in a different namespace:
 
 ```c++
 namespace MasterSignal {
@@ -111,11 +111,14 @@ namespace MasterSignal {
 };
 ```
 
+The purpose of all this pedantry is to clue in the compiler as to what we are doing.  If we use the wrong value in a function call somewhere, it will generate a compiler warning for us -- in a way that using the raw integers would not.
+
+
 ### `DashMessage.h` - for defining the wire protocol
 
 This is the file that defines how `MasterSignal` values are packed and unpacked from bytes that flow across I2C.
 
-This file is necessary because more than 8 bits (as of this writing, 10) need to be transmitted, requiring multiple bytes to transmit any message.  One option would be to send 1 bit per message byte, with 7 bits to say what kind of info is being transmitted and 1 bit of information.  That's a lot of overhad.
+This file is necessary because more than 8 bits (as of this writing, 10) need to be transmitted, requiring multiple bytes to transmit any message.  One option would be to send 1 bit per message byte, with 7 bits to say what kind of info is being transmitted and 1 bit of information.  That's a lot of overhead.
 
 We can do a bit better by reserving bit positions in each byte for specific signal data, and (knowing the total message length ahead of time) processing a chain of those bytes at once.  All we need to know is where the message starts.
 
@@ -143,7 +146,7 @@ typedef struct DashMessage {
 The struct is generally used by the sender as follows
 
 ```c++
-  DashMessage d(digitalRead); // create a message from the current state of pins
+  DashMessage d(digitalRead); // create a message from the current state of pins -- using the digitalRead function
   d.send(Wire, SLAVE_I2C_ADDRESS);
 ```
 
