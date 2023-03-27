@@ -322,7 +322,9 @@ public:
   }
 };
 
-class BlinkingLED : public StatefulLED {
+
+// This class defines a blinking LED that can blink 2 different colors
+class MultiBlinkingLED : public StatefulLED {
 public:
   RainbowState    m_stRainbow;
   SolidColorState m_stSolid;
@@ -334,7 +336,7 @@ public:
   // note that even though the quiet states and the solid states are the same color,
   // the solid state can be interrupted at any time
 
-  BlinkingLED(struct CRGB* leds, int numLEDs, int index) :
+  MultiBlinkingLED(struct CRGB* leds, int numLEDs, int index) :
     StatefulLED(leds, numLEDs, index),
     m_stRainbow(numLEDs, index),
     m_stSolid(COLOR_WHITE),
@@ -382,9 +384,9 @@ public:
 
 };
 
-class BoostLED : public BlinkingLED {
+class BoostLED : public MultiBlinkingLED {
 public:
-  BoostLED(struct CRGB* leds, int numLEDs, int index) : BlinkingLED(leds, numLEDs, index) {}
+  BoostLED(struct CRGB* leds, int numLEDs, int index) : MultiBlinkingLED(leds, numLEDs, index) {}
 
   // string representation of the state name
   inline virtual String name() const { return "Bst"; };
@@ -397,9 +399,9 @@ public:
   }
 };
 
-class TachLED : public BlinkingLED {
+class TachLED : public MultiBlinkingLED {
 public:
-  TachLED(struct CRGB* leds, int numLEDs, int index) : BlinkingLED(leds, numLEDs, index) {}
+  TachLED(struct CRGB* leds, int numLEDs, int index) : MultiBlinkingLED(leds, numLEDs, index) {}
 
   // string representation of the state name
   inline virtual String name() const { return "Tach"; };
