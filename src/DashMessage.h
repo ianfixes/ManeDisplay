@@ -110,7 +110,7 @@ typedef struct DashMessage {
   }
 
   // read payload from digital input pins
-  void setFromPins(int (*myDigitalRead)(pin_size_t)) {
+  void setFromPins(PinStatus (*myDigitalRead)(pin_size_t)) {
     setBit(MasterSignal::Values::boostWarning,         myDigitalRead(MasterPin::Values::boostWarning        ));
     setBit(MasterSignal::Values::boostCritical,        myDigitalRead(MasterPin::Values::boostCritical       ));
     setBit(MasterSignal::Values::acOn,                 myDigitalRead(MasterPin::Values::acOn                ));
@@ -159,7 +159,7 @@ typedef struct DashMessage {
   }
 
   // construct from arduino inputs
-  DashMessage(int (*myDigitalRead)(pin_size_t)) {
+  DashMessage(PinStatus (*myDigitalRead)(pin_size_t)) {
     initFrames();
     setFromPins(myDigitalRead);
   }
