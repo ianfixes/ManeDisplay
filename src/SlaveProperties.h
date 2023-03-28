@@ -44,7 +44,7 @@ typedef struct SlaveState {
 
   DashMessage masterMessage;
 
-  // get a single bit from the master signals
+  // set the master signals
   inline void setMasterSignals(DashMessage const &m) {
     masterMessage = m;
   }
