@@ -32,7 +32,7 @@ const Range oilServoLimit   { 0, 180 };
 
 // define limits for LED strip brightness
 const Range LEDStripBrightnessLimit { 5, 255 };
-const int dimBrightnessLevel = (LEDStripBrightnessLimit.max - LEDStripBrightnessLimit.min) / 2;
+const int dimBrightnessLevel = LEDStripBrightnessLimit.midpoint();
 
 const unsigned int ARDUINO_BOOT_ANIMATION_MS = 2000; // amount of time that we can use to do a bootup sequence
 const unsigned int ARDUINO_SOFT_SHUTDOWN_MS = 3000; // amount of time that we can use to do a soft shutdown

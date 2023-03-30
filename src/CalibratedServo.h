@@ -6,7 +6,8 @@ typedef struct Range {
   unsigned int min;
   unsigned int max;
 
-  unsigned int clamp(unsigned int v) const { return constrain(v, min, max); }
+  inline unsigned int clamp(unsigned int v) const { return constrain(v, min, max); }
+  inline unsigned int midpoint() const { return  (max - min) / 2; }
 } Range;
 
 // a calibrated servo defines its input (signal) and output (position) ranges
