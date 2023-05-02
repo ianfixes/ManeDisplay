@@ -91,7 +91,11 @@ const unsigned int NUM_DASH_LEDS = DASH_LED_MAX + 1;
 typedef struct DashSupport {
   void (*pinMode)(pin_size_t, int);
   int (*analogRead)(unsigned char);
+#ifdef PinStatus
   PinStatus (*digitalRead)(unsigned char);
+#else
+  int (*digitalRead)(unsigned char);
+#endif
   void (*digitalWrite)(pin_size_t, int);
   CFastLED* fastLed;
 } DashSupport;
