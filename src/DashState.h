@@ -3,7 +3,13 @@
 #include "DashMessage.h"
 #include "CalibratedServo.h"
 #include "LEDState.h"
-#include <FastLED.h>
+
+
+#ifndef ARDUINO_CI_COMPILATION_MOCKS
+  #include <FastLED.h>
+#else
+  #include "FakeFastLED.h"
+#endif
 
 /**
  * This file defines the dashboard LEDs state, servos, and how the dash performs its logic
