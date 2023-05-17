@@ -73,12 +73,12 @@ public:
 
   // the state just applies the saved color.
   // TODO: we could consider rapidly fading toward this color from whatever color was currently being displayed
-  virtual void loop(struct CRGB* led, unsigned long const & /* millis */) {
+  virtual void loop(struct CRGB* led, unsigned long const & /* millis */) override {
     *led = m_color; // TODO: see if there's a FastLED method for doing this more natively
   }
 
   // The state data
-  virtual String toStringWithParams(unsigned long const & /* millis */) const {
+  virtual String toStringWithParams(unsigned long const & /* millis */) const override {
     char ret[12];
     sprintf(ret, "Sld %02X%02X%02X", m_color.h, m_color.s, m_color.v);
     return String(ret);
@@ -118,7 +118,7 @@ public:
   virtual bool activeOnFirstHalf() const = 0;
 
   // The state data
-  virtual String toStringWithParams(unsigned long const & /* millis */) const {
+  virtual String toStringWithParams(unsigned long const & /* millis */) const override {
     char ret[12];
     sprintf(ret, "Fl%c %02X%02X%02X", (activeOnFirstHalf() ? '1' : '2'), m_color.h, m_color.s, m_color.v);
     return String(ret);
@@ -163,7 +163,7 @@ public:
   }
 
   // The state data
-  virtual String toStringWithParams(unsigned long const & millis) const {
+  virtual String toStringWithParams(unsigned long const & millis) const override {
     char ret[12];
     sprintf(ret, "Rnb    %03d", hue(millis));
     return String(ret);
@@ -292,7 +292,7 @@ public:
   IlluminationLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_WHITE) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "Illu"; };
+  inline virtual String name() const override { return "Illu"; };
 };
 
 // control of the AC LED
@@ -301,7 +301,7 @@ public:
   AirCondLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_BLUE) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "AC"; };
+  inline virtual String name() const override { return "AC"; };
 
   virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
     return slave.getMasterSignal(MasterSignal::Values::acOn);
@@ -314,7 +314,7 @@ public:
   HeatedRearWindowLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_YELLOW) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "Hrw"; };
+  inline virtual String name() const override { return "Hrw"; };
 
   virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
     return slave.getMasterSignal(MasterSignal::Values::heatedRearWindowOn);
@@ -327,7 +327,7 @@ public:
   HazardLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_WHITE) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "Haz"; };
+  inline virtual String name() const override { return "Haz"; };
 
   virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
     return !slave.getMasterSignal(MasterSignal::Values::hazardOff);
@@ -340,7 +340,7 @@ public:
   RearFoggerLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_AMBER) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "Fog"; };
+  inline virtual String name() const override { return "Fog"; };
 
   virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
     return slave.getMasterSignal(MasterSignal::Values::rearFoggerOn);
@@ -407,7 +407,7 @@ public:
   BoostLED(struct CRGB* leds, int numLEDs, int index) : MultiBlinkingLED(leds, numLEDs, index) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "Bst"; };
+  inline virtual String name() const override { return "Bst"; };
 
   virtual bool isWarning(const SlaveState &slave) const override {
     return slave.getMasterSignal(MasterSignal::Values::boostWarning);
@@ -422,7 +422,7 @@ public:
   TachLED(struct CRGB* leds, int numLEDs, int index) : MultiBlinkingLED(leds, numLEDs, index) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "Tach"; };
+  inline virtual String name() const override { return "Tach"; };
 
   virtual bool isWarning(const SlaveState &slave) const override {
     return slave.tachometerWarning;
