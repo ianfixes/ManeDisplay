@@ -1,5 +1,10 @@
 #pragma once
-#include <Servo.h>
+
+#ifndef ARDUINO_CI_COMPILATION_MOCKS
+  #include <Servo.h>
+#else
+  #include "FakeServo.h"
+#endif
 
 // A range defines a lower and upper bound
 typedef struct Range {

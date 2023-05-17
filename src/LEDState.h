@@ -1,7 +1,12 @@
 #pragma once
 
 #include "SlaveProperties.h"
-#include <FastLED.h>
+
+#ifndef ARDUINO_CI_COMPILATION_MOCKS
+  #include <FastLED.h>
+#else
+  #include <FakeFastLED.h>
+#endif
 
 // Stateful LED behaviors
 //
