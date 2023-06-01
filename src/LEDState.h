@@ -37,7 +37,6 @@ const struct CRGB COLOR_YELLOW = CRGB::HTMLColorCode(CRGB::Yellow);
 const struct CRGB COLOR_BLUE   = CRGB::HTMLColorCode(CRGB::Blue);
 const struct CRGB COLOR_AMBER  = CRGB((uint32_t)0xFFBF00);
 
-
 // abstract class for an LED state.
 // the class's responsibility is to determine when it's OK to change state,
 // and to handle the LED behavior while in the state (based on the time and
@@ -50,6 +49,9 @@ class LEDState {
 public:
   // what to do with the LED in this state, on one tick
   virtual void loop(struct CRGB* led, unsigned long const &millis) = 0;
+
+  // perform any activation
+  virtual void activate(unsigned long const & /* millis */) { };
 
   // whether the state is expired.  by default, it's always time to reevaulate
   virtual bool isExpired(unsigned long const & /* millis */) const { return true; }
@@ -92,6 +94,33 @@ public:
 private:
   // disallow the default constructor, so that not defining the initial color is a compiler error
   SolidColorState() {};
+};
+
+// a state to just show a solid color.  The color is provided on init of the state
+class SolidColorTimedState : public SolidColorState {
+public:
+  unsigned long const m_lifetimeMs;
+  unsigned long m_expiryTimeMs;
+
+  SolidColorTimedState(const struct CHSV &hsv, int lifetimeMs) : SolidColorState(hsv), m_lifetimeMs(lifetimeMs), m_expiryTimeMs(0) {}
+  SolidColorTimedState(const struct CRGB &rgb, int lifetimeMs) : SolidColorTimedState(rgb2hsv_approximate(rgb), lifetimeMs) {}
+
+  // The state data
+  virtual String toStringWithParams(unsigned long const &millis) const override {
+    char ret[12];
+    sprintf(ret, "Slt %02X %03d", m_color.h, (int)((m_expiryTimeMs - millis) % 1000));
+    return String(ret);
+  }
+
+  // set the expiry clock when the state activates
+  virtual void activate(unsigned long const &millis) override {
+    m_expiryTimeMs = millis + m_lifetimeMs;
+  }
+
+  // observe the expiry clock
+  virtual bool isExpired(unsigned long const &millis) const override {
+    return m_expiryTimeMs < millis;
+  }
 };
 
 // abstract class to handle flashing; both the on and off flash states are children of this
@@ -224,6 +253,7 @@ public:
   void loop(unsigned long const &millis, const SlaveState &slave) {
     if (inInitialState() || m_currentState->isExpired(millis)) {
       m_currentState = chooseNextState(millis, slave);
+      m_currentState->activate(millis);
     }
 
     m_currentState->loop(m_leds + m_index, millis); // "m_leds + index" is just "&m_leds[index]"
@@ -239,7 +269,6 @@ class BinkyLED : public StatefulLED {
 public:
   SolidColorTimedState m_stOn;
   SolidColorState m_stOff;
-  PartyMode m_partymode;
   RainbowState m_stRainbow;
   unsigned long m_canFlashMs;
 
@@ -247,16 +276,24 @@ public:
     StatefulLED(leds, numLEDs, index),
     m_stOn(COLOR_WHITE, FLASH_DURATION_MS / 10),
     m_stOff(COLOR_BLACK),
-    m_partymode(PartyMode::Values::rainbow);
     m_stRainbow(numLEDs, index),
     m_canFlashMs(0)
   {}
 
   // the master signal for rainbow mode overrides all others
   virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
-    if (slave.getMasterSignal(MasterSignal::Values::scrollRainbowEffects)) {
+    switch (slave.effectmode.state) {
+    case EffectMode::Values::rainbow:
       return &m_stRainbow;
-    } else {
+    case EffectMode::Values::sparkle:
+      if (millis < m_canFlashMs) {
+        return &m_stOff;
+      } else {
+        // update the random time that the LED will be unlit
+        m_canFlashMs = millis + (FLASH_DURATION_MS * 2) + random(FLASH_DURATION_MS * 4);
+        return &m_stOn;
+      }
+    default:
       return chooseNextLocalState(millis, slave);
     }
   }
