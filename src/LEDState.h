@@ -1,7 +1,12 @@
 #pragma once
 
 #include "SlaveProperties.h"
-#include <FastLED.h>
+
+#ifndef ARDUINO_CI_COMPILATION_MOCKS
+  #include <FastLED.h>
+#else
+  #include <FakeFastLED.h>
+#endif
 
 // Stateful LED behaviors
 //
@@ -32,7 +37,6 @@ const struct CRGB COLOR_YELLOW = CRGB::HTMLColorCode(CRGB::Yellow);
 const struct CRGB COLOR_BLUE   = CRGB::HTMLColorCode(CRGB::Blue);
 const struct CRGB COLOR_AMBER  = CRGB((uint32_t)0xFFBF00);
 
-
 // abstract class for an LED state.
 // the class's responsibility is to determine when it's OK to change state,
 // and to handle the LED behavior while in the state (based on the time and
@@ -45,6 +49,9 @@ class LEDState {
 public:
   // what to do with the LED in this state, on one tick
   virtual void loop(struct CRGB* led, unsigned long const &millis) = 0;
+
+  // perform any activation
+  virtual void activate(unsigned long const & /* millis */) { };
 
   // whether the state is expired.  by default, it's always time to reevaulate
   virtual bool isExpired(unsigned long const & /* millis */) const { return true; }
@@ -73,12 +80,12 @@ public:
 
   // the state just applies the saved color.
   // TODO: we could consider rapidly fading toward this color from whatever color was currently being displayed
-  virtual void loop(struct CRGB* led, unsigned long const & /* millis */) {
+  virtual void loop(struct CRGB* led, unsigned long const & /* millis */) override {
     *led = m_color; // TODO: see if there's a FastLED method for doing this more natively
   }
 
   // The state data
-  virtual String toStringWithParams(unsigned long const & /* millis */) const {
+  virtual String toStringWithParams(unsigned long const & /* millis */) const override {
     char ret[12];
     sprintf(ret, "Sld %02X%02X%02X", m_color.h, m_color.s, m_color.v);
     return String(ret);
@@ -87,6 +94,33 @@ public:
 private:
   // disallow the default constructor, so that not defining the initial color is a compiler error
   SolidColorState() {};
+};
+
+// a state to just show a solid color.  The color is provided on init of the state
+class SolidColorTimedState : public SolidColorState {
+public:
+  unsigned long const m_lifetimeMs;
+  unsigned long m_expiryTimeMs;
+
+  SolidColorTimedState(const struct CHSV &hsv, int lifetimeMs) : SolidColorState(hsv), m_lifetimeMs(lifetimeMs), m_expiryTimeMs(0) {}
+  SolidColorTimedState(const struct CRGB &rgb, int lifetimeMs) : SolidColorTimedState(rgb2hsv_approximate(rgb), lifetimeMs) {}
+
+  // The state data
+  virtual String toStringWithParams(unsigned long const &millis) const override {
+    char ret[12];
+    sprintf(ret, "Slt %02X %03d", m_color.h, (int)((m_expiryTimeMs - millis) % 1000));
+    return String(ret);
+  }
+
+  // set the expiry clock when the state activates
+  virtual void activate(unsigned long const &millis) override {
+    m_expiryTimeMs = millis + m_lifetimeMs;
+  }
+
+  // observe the expiry clock
+  virtual bool isExpired(unsigned long const &millis) const override {
+    return m_expiryTimeMs < millis;
+  }
 };
 
 // abstract class to handle flashing; both the on and off flash states are children of this
@@ -118,7 +152,7 @@ public:
   virtual bool activeOnFirstHalf() const = 0;
 
   // The state data
-  virtual String toStringWithParams(unsigned long const & /* millis */) const {
+  virtual String toStringWithParams(unsigned long const & /* millis */) const override {
     char ret[12];
     sprintf(ret, "Fl%c %02X%02X%02X", (activeOnFirstHalf() ? '1' : '2'), m_color.h, m_color.s, m_color.v);
     return String(ret);
@@ -163,7 +197,7 @@ public:
   }
 
   // The state data
-  virtual String toStringWithParams(unsigned long const & millis) const {
+  virtual String toStringWithParams(unsigned long const & millis) const override {
     char ret[12];
     sprintf(ret, "Rnb    %03d", hue(millis));
     return String(ret);
@@ -219,6 +253,7 @@ public:
   void loop(unsigned long const &millis, const SlaveState &slave) {
     if (inInitialState() || m_currentState->isExpired(millis)) {
       m_currentState = chooseNextState(millis, slave);
+      m_currentState->activate(millis);
     }
 
     m_currentState->loop(m_leds + m_index, millis); // "m_leds + index" is just "&m_leds[index]"
@@ -226,17 +261,56 @@ public:
 };
 
 
+// All Binky LEDs respond to global modes (like rainbow)
+// The local states must be defined as member variables, and a chooseNextLocalState function
+//   chooses which state to point to when it is time to find the next one.  This ensures
+//   we only need to handle global behaviors here.
+class BinkyLED : public StatefulLED {
+public:
+  SolidColorTimedState m_stOn;
+  SolidColorState m_stOff;
+  RainbowState m_stRainbow;
+  unsigned long m_canFlashMs;
+
+  BinkyLED(struct CRGB* leds, int numLEDs, int index) :
+    StatefulLED(leds, numLEDs, index),
+    m_stOn(COLOR_WHITE, FLASH_DURATION_MS / 10),
+    m_stOff(COLOR_BLACK),
+    m_stRainbow(numLEDs, index),
+    m_canFlashMs(0)
+  {}
+
+  // the master signal for rainbow mode overrides all others
+  virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
+    switch (slave.effectmode.state) {
+    case EffectMode::Values::rainbow:
+      return &m_stRainbow;
+    case EffectMode::Values::sparkle:
+      if (millis < m_canFlashMs) {
+        return &m_stOff;
+      } else {
+        // update the random time that the LED will be unlit
+        m_canFlashMs = millis + (FLASH_DURATION_MS * 2) + random(FLASH_DURATION_MS * 4);
+        return &m_stOn;
+      }
+    default:
+      return chooseNextLocalState(millis, slave);
+    }
+  }
+
+  // what state to pick next
+  virtual LEDState* chooseNextLocalState(unsigned long const &millis, const SlaveState &slave) = 0;
+};
+
 // A simple LED switches between a solid color mode (on/off) and a rainbow mode
 // the on/off criteria cna be overridden
-class SimpleLED : public StatefulLED {
+class SimpleLED : public BinkyLED {
 public:
-  RainbowState m_stRainbow;
   SolidColorState m_stOff;
   SolidColorState m_stOn;
 
   SimpleLED(struct CRGB* leds, int numLEDs, int index, const struct CHSV &color) :
-    StatefulLED(leds, numLEDs, index),
-    m_stRainbow(numLEDs, index),
+    BinkyLED(leds, numLEDs, index),
     m_stOff(COLOR_BLACK),
     m_stOn(color)
   {}
@@ -245,16 +319,9 @@ public:
     SimpleLED(leds, numLEDs, index, rgb2hsv_approximate(color))
   {}
 
-  // string representation of the state name
-  inline virtual String name() const { return "Simple"; };
-
   // the master signal for rainbow mode overrides all others
-  virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
-    if (slave.getMasterSignal(MasterSignal::Values::scrollRainbowEffects)) {
-      return &m_stRainbow;
-    } else {
-      return isOn(millis, slave) ? &m_stOn : &m_stOff;
-    }
+  virtual LEDState* chooseNextLocalState(unsigned long const &millis, const SlaveState &slave) {
+    return isOn(millis, slave) ? &m_stOn : &m_stOff;
   }
 
   // by default, always on
@@ -267,7 +334,7 @@ public:
   IlluminationLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_WHITE) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "Illu"; };
+  inline virtual String name() const override { return "Illu"; };
 };
 
 // control of the AC LED
@@ -276,7 +343,7 @@ public:
   AirCondLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_BLUE) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "AC"; };
+  inline virtual String name() const override { return "AC"; };
 
   virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
     return slave.getMasterSignal(MasterSignal::Values::acOn);
@@ -289,7 +356,7 @@ public:
   HeatedRearWindowLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_YELLOW) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "Hrw"; };
+  inline virtual String name() const override { return "Hrw"; };
 
   virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
     return slave.getMasterSignal(MasterSignal::Values::heatedRearWindowOn);
@@ -302,7 +369,7 @@ public:
   HazardLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_WHITE) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "Haz"; };
+  inline virtual String name() const override { return "Haz"; };
 
   virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
     return !slave.getMasterSignal(MasterSignal::Values::hazardOff);
@@ -315,16 +382,17 @@ public:
   RearFoggerLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_AMBER) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "Fog"; };
+  inline virtual String name() const override { return "Fog"; };
 
   virtual bool isOn(unsigned long const & /* millis */, const SlaveState &slave) override {
     return slave.getMasterSignal(MasterSignal::Values::rearFoggerOn);
   }
 };
 
-class BlinkingLED : public StatefulLED {
+
+// This class defines a blinking LED that can blink 2 different colors
+class MultiBlinkingLED : public BinkyLED {
 public:
-  RainbowState    m_stRainbow;
   SolidColorState m_stSolid;
   FlashLoudState  m_stFlashRedLoud;
   FlashQuietState m_stFlashRedQuiet;
@@ -334,18 +402,14 @@ public:
   // note that even though the quiet states and the solid states are the same color,
   // the solid state can be interrupted at any time
 
-  BlinkingLED(struct CRGB* leds, int numLEDs, int index) :
-    StatefulLED(leds, numLEDs, index),
-    m_stRainbow(numLEDs, index),
+  MultiBlinkingLED(struct CRGB* leds, int numLEDs, int index) :
+    BinkyLED(leds, numLEDs, index),
     m_stSolid(COLOR_WHITE),
     m_stFlashRedLoud(COLOR_RED),
     m_stFlashRedQuiet(m_stSolid),
     m_stFlashAmberLoud(COLOR_AMBER),
     m_stFlashAmberQuiet(m_stSolid)
   {}
-
-  // string representation of the state name
-  inline virtual String name() const { return "Blinkn"; };
 
   // conditionally seed the flash states' timing
   void seedFlashTiming(unsigned long const &millis) {
@@ -364,10 +428,8 @@ public:
   virtual bool isCritical(const SlaveState &slave) const = 0;
 
   // what state to pick next
-  virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
-    if (slave.getMasterSignal(MasterSignal::Values::scrollRainbowEffects)) {
-      return &m_stRainbow;
-    } else if (isCritical(slave)) {
+  virtual LEDState* chooseNextLocalState(unsigned long const &millis, const SlaveState &slave) {
+    if (isCritical(slave)) {
       seedFlashTiming(millis);
       // loud states must transition to quiet to complete the blink. all others go loud immediately
       return (inState(m_stFlashRedLoud) || inState(m_stFlashAmberLoud)) ? (LEDState*)&m_stFlashRedQuiet : (LEDState*)&m_stFlashRedLoud;
@@ -382,12 +444,12 @@ public:
 
 };
 
-class BoostLED : public BlinkingLED {
+class BoostLED : public MultiBlinkingLED {
 public:
-  BoostLED(struct CRGB* leds, int numLEDs, int index) : BlinkingLED(leds, numLEDs, index) {}
+  BoostLED(struct CRGB* leds, int numLEDs, int index) : MultiBlinkingLED(leds, numLEDs, index) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "Bst"; };
+  inline virtual String name() const override { return "Bst"; };
 
   virtual bool isWarning(const SlaveState &slave) const override {
     return slave.getMasterSignal(MasterSignal::Values::boostWarning);
@@ -397,12 +459,12 @@ public:
   }
 };
 
-class TachLED : public BlinkingLED {
+class TachLED : public MultiBlinkingLED {
 public:
-  TachLED(struct CRGB* leds, int numLEDs, int index) : BlinkingLED(leds, numLEDs, index) {}
+  TachLED(struct CRGB* leds, int numLEDs, int index) : MultiBlinkingLED(leds, numLEDs, index) {}
 
   // string representation of the state name
-  inline virtual String name() const { return "Tach"; };
+  inline virtual String name() const override { return "Tach"; };
 
   virtual bool isWarning(const SlaveState &slave) const override {
     return slave.tachometerWarning;

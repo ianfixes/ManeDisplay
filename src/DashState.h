@@ -3,7 +3,13 @@
 #include "DashMessage.h"
 #include "CalibratedServo.h"
 #include "LEDState.h"
-#include <FastLED.h>
+
+
+#ifndef ARDUINO_CI_COMPILATION_MOCKS
+  #include <FastLED.h>
+#else
+  #include "FakeFastLED.h"
+#endif
 
 /**
  * This file defines the dashboard LEDs state, servos, and how the dash performs its logic
@@ -32,7 +38,7 @@ const Range oilServoLimit   { 0, 180 };
 
 // define limits for LED strip brightness
 const Range LEDStripBrightnessLimit { 5, 255 };
-const int dimBrightnessLevel = (LEDStripBrightnessLimit.max - LEDStripBrightnessLimit.min) / 2;
+const int dimBrightnessLevel = LEDStripBrightnessLimit.midpoint();
 
 const unsigned int ARDUINO_BOOT_ANIMATION_MS = 2000; // amount of time that we can use to do a bootup sequence
 const unsigned int ARDUINO_SOFT_SHUTDOWN_MS = 3000; // amount of time that we can use to do a soft shutdown
@@ -89,9 +95,20 @@ const unsigned int NUM_DASH_LEDS = DASH_LED_MAX + 1;
 // This is a way to separate the function of these classes from the hardware,
 // which will make testing easier -- we can feed it mock functions if we want
 typedef struct DashSupport {
+#ifdef pin_size_t
   void (*pinMode)(pin_size_t, int);
+#else
+  void (*pinMode)(uint8_t, uint8_t);
+#endif
+
   int (*analogRead)(unsigned char);
+
+#ifdef PinStatus
+  PinStatus (*digitalRead)(unsigned char);
+#else
   int (*digitalRead)(unsigned char);
+#endif
+
   void (*digitalWrite)(pin_size_t, int);
   CFastLED* fastLed;
 } DashSupport;
@@ -214,28 +231,6 @@ typedef struct DashState {
     new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::windowSw0)
   };
 
-  // construct empty container
-  // This is also where we set the calibration data for the servos
-  DashState(DashSupport ds):
-    support(ds),
-    fuelGauge(SlavePin::Values::fuelServo, fuelSenderLimit, fuelServoLimit),
-    tempGauge(SlavePin::Values::tempServo, tempSenderLimit, tempServoLimit),
-    oilGauge( SlavePin::Values::oilServo,  oilSenderLimit,  oilServoLimit),
-    bootStartTime(0),
-    ignitionLastOnTime(0)
-  {}
-
-  // accept a message from I2C
-  void setMessage(DashMessage const &dm) {
-    nextState.setMasterSignals(dm);
-  }
-
-  // accept a hardware state
-  void setState(SlaveState state) {
-    state.masterMessage = nextState.masterMessage; // carry over current message state
-    nextState = state;
-  }
-
   // measure the time since the first measured time
   inline bool inBootSequence(unsigned long const &nMillis) const {
     return (nMillis - bootStartTime) < ARDUINO_BOOT_ANIMATION_MS;
@@ -281,6 +276,58 @@ typedef struct DashState {
     return (nMillis - ignitionLastOnTime) < ARDUINO_SOFT_SHUTDOWN_MS;
   }
 
+
+  // construct empty container
+  // This is also where we set the calibration data for the servos
+  DashState(DashSupport ds):
+    support(ds),
+    fuelGauge(SlavePin::Values::fuelServo, fuelSenderLimit, fuelServoLimit),
+    tempGauge(SlavePin::Values::tempServo, tempSenderLimit, tempServoLimit),
+    oilGauge( SlavePin::Values::oilServo,  oilSenderLimit,  oilServoLimit)
+  {}
+
+  // accept a message from I2C
+  void setMessage(DashMessage const &dm) {
+    nextState.setMasterSignals(dm);
+  }
+
+  inline SlaveState& state() {
+    return nextState;
+  }
+
+  // this is only for unit testing
+  inline SlaveState& getLastState() {
+    return lastState;
+  }
+
+  // accept a hardware state
+  void setState(SlaveState state) {
+    DashMessage d(nextState.masterMessage);
+    nextState = state;
+    nextState.masterMessage = d;
+  }
+
+  // accept a hardware state
+  void setSlaveState(int (*myDigitalRead)(pin_size_t), int (*myAnalogRead)(pin_size_t)) {
+    nextState.setFromPins(myDigitalRead, myAnalogRead);
+  }
+
+#ifdef PinStatus
+  // accept a hardware state
+  void setSlaveState(PinStatus (*myDigitalRead)(pin_size_t), int (*myAnalogRead)(pin_size_t)) {
+    nextState.setFromPins(myDigitalRead, myAnalogRead);
+  }
+#endif
+
+  // reset members (helpful for unit testing)
+  void reset() {
+    bootStartTime = 0;
+    ignitionLastOnTime = 0;
+    SlaveState newstate;
+    lastState = newstate;
+    nextState = newstate;
+  }
+
   // perform all hardware setup and software state init for this board
   void setup() {
     // configure inputs
@@ -294,6 +341,8 @@ typedef struct DashState {
     oilGauge.setup();
 
     support.fastLed->addLeds<LED_TYPE, SlavePin::Values::ledStrip, COLOR_ORDER>(leds, NUM_DASH_LEDS).setCorrection(TypicalLEDStrip);
+
+    reset();
   }
 
   // convert the dash state to something we can monitor
@@ -325,9 +374,9 @@ typedef struct DashState {
   // apply the internal state to the hardware
   void apply(unsigned long const &nMillis) {
     // DATA SAFETY SECTION: ensure state data isn't corrupted
+    nextState.debounce(nMillis);
     lastState = nextState; // try to keep the async 2wire receiver from interfering with current state
     if (0 == bootStartTime) bootStartTime = nMillis; // get a real measure of boot start time
-
 
     // TODO: delete the list when everything's crossed off it
     // here are the things we have to make sense of
@@ -343,10 +392,11 @@ typedef struct DashState {
       processShutdownSequence(nMillis);
       return;
     }
+    ignitionLastOnTime = nMillis;
 
     // STUFF ALLOWED DURING BOOT SECTION:
     // update the scroll CAN button state
-    support.digitalWrite(SlavePin::Values::scrollCAN, lastState.scrollCAN ? HIGH : LOW);
+    support.digitalWrite(SlavePin::Values::scrollCAN, lastState.scrollCANstate(nMillis) ? HIGH : LOW);
 
     // update all stateful LEDs from the input. this will mean they're always the right hue
     for (unsigned int i = DASH_LED_MIN; i < NUM_DASH_LEDS; ++i) {

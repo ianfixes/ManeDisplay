@@ -1,5 +1,6 @@
 compile:
   platforms:
+    - uno
     - nano_every
 
   libraries:
@@ -8,6 +9,7 @@ compile:
 
 unittest:
   platforms:
+    - uno
     - nano_every
 
 # nano_every definition isn't yet in a released arduino_ci version

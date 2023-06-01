@@ -123,6 +123,22 @@ typedef struct DashMessage {
     setBit(MasterSignal::Values::scrollBrightness,     myDigitalRead(MasterPin::Values::scrollBrightness    ));
   }
 
+#ifdef PinStatus
+  // read payload from digital input pins
+  void setFromPins(PinStatus (*myDigitalRead)(pin_size_t)) {
+    setBit(MasterSignal::Values::boostWarning,         myDigitalRead(MasterPin::Values::boostWarning        ));
+    setBit(MasterSignal::Values::boostCritical,        myDigitalRead(MasterPin::Values::boostCritical       ));
+    setBit(MasterSignal::Values::acOn,                 myDigitalRead(MasterPin::Values::acOn                ));
+    setBit(MasterSignal::Values::heatedRearWindowOn,   myDigitalRead(MasterPin::Values::heatedRearWindowOn  ));
+    setBit(MasterSignal::Values::hazardOff,            myDigitalRead(MasterPin::Values::hazardOff           ));
+    setBit(MasterSignal::Values::rearFoggerOn,         myDigitalRead(MasterPin::Values::rearFoggerOn        ));
+    setBit(MasterSignal::Values::scrollCAN,            myDigitalRead(MasterPin::Values::scrollCAN           ));
+    setBit(MasterSignal::Values::scrollPresetColours,  myDigitalRead(MasterPin::Values::scrollPresetColours ));
+    setBit(MasterSignal::Values::scrollRainbowEffects, myDigitalRead(MasterPin::Values::scrollRainbowEffects));
+    setBit(MasterSignal::Values::scrollBrightness,     myDigitalRead(MasterPin::Values::scrollBrightness    ));
+  }
+#endif
+
   // read input from I2C
   void setFromWire(TwoWire &wire) {
     if (wire.available() < (int)WIRE_PROTOCOL_MESSAGE_LENGTH) {
@@ -163,6 +179,14 @@ typedef struct DashMessage {
     initFrames();
     setFromPins(myDigitalRead);
   }
+
+#ifdef PinStatus
+  // construct from arduino inputs
+  DashMessage(PinStatus (*myDigitalRead)(pin_size_t)) {
+    initFrames();
+    setFromPins(myDigitalRead);
+  }
+#endif
 
   // construct from the wire
   DashMessage(TwoWire wire) {
