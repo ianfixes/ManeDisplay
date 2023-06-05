@@ -204,6 +204,50 @@ public:
   }
 };
 
+// Flash briefly and then wait a random amount of time.  Taken together, it's sparkly
+class SparkleState : public LEDState {
+public:
+  unsigned long m_canFlashMs;
+  const unsigned int m_sparkleDurationMs = 20;
+
+  SparkleState() : LEDState(), m_canFlashMs(0) {}
+
+  // on-time is in the future
+  inline bool beforeFlash(unsigned long const &millis) const {
+    return millis < m_canFlashMs;
+  }
+
+  // on-time and off-time have both elapsed
+  inline bool afterFlash(unsigned long const &millis) const {
+    return (m_canFlashMs + m_sparkleDurationMs) < millis;
+  }
+
+  // before the pulse, go dark. during the pulse, go light. after the pulse, pick a new pulse time.
+  virtual void loop(struct CRGB* led, unsigned long const &millis) override {
+    if (beforeFlash(millis)) {
+      *led = COLOR_BLACK;
+    } else if (afterFlash(millis)) {
+      m_canFlashMs = millis + m_sparkleDurationMs + random(FLASH_DURATION_MS * 5);
+    } else {
+      *led = COLOR_WHITE;
+    }
+  }
+
+  // The state data
+  virtual String toStringWithParams(unsigned long const & millis) const override {
+    char ret[12];
+    if (beforeFlash(millis)) {
+      sprintf(ret, "Sprk  %04ld", m_canFlashMs - millis);
+    } else if (afterFlash(millis)) {
+      sprintf(ret, "SPRK  ----");
+    } else {
+      sprintf(ret, "SPRK  %04ld", m_canFlashMs + m_sparkleDurationMs - millis);
+    }
+
+    return String(ret);
+  }
+};
+
 
 // This class defines an LED that can be in one of several states.
 // The states must be defined as member variables, and a chooseNextState function
@@ -270,14 +314,14 @@ public:
   SolidColorTimedState m_stOn;
   SolidColorState m_stOff;
   RainbowState m_stRainbow;
-  unsigned long m_canFlashMs;
+  SparkleState m_stSparkle;
 
   BinkyLED(struct CRGB* leds, int numLEDs, int index) :
     StatefulLED(leds, numLEDs, index),
     m_stOn(COLOR_WHITE, FLASH_DURATION_MS / 10),
     m_stOff(COLOR_BLACK),
     m_stRainbow(numLEDs, index),
-    m_canFlashMs(0)
+    m_stSparkle()
   {}
 
   // the master signal for rainbow mode overrides all others
@@ -286,13 +330,7 @@ public:
     case EffectMode::Values::rainbow:
       return &m_stRainbow;
     case EffectMode::Values::sparkle:
-      if (millis < m_canFlashMs) {
-        return &m_stOff;
-      } else {
-        // update the random time that the LED will be unlit
-        m_canFlashMs = millis + (FLASH_DURATION_MS * 2) + random(FLASH_DURATION_MS * 4);
-        return &m_stOn;
-      }
+      return &m_stSparkle;
     default:
       return chooseNextLocalState(millis, slave);
     }
