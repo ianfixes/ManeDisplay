@@ -37,6 +37,16 @@ const struct CRGB COLOR_YELLOW = CRGB::HTMLColorCode(CRGB::Yellow);
 const struct CRGB COLOR_BLUE   = CRGB::HTMLColorCode(CRGB::Blue);
 const struct CRGB COLOR_AMBER  = CRGB((uint32_t)0xFFBF00);
 
+
+// define the LED position in physical space,
+// relative to upper left of console,
+// in millimeters of offset rightward and downward
+// ... eventually
+struct LEDPosition {
+  unsigned int x;
+  unsigned int y;
+};
+
 // abstract class for an LED state.
 // the class's responsibility is to determine when it's OK to change state,
 // and to handle the LED behavior while in the state (based on the time and

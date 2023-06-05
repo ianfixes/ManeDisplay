@@ -116,22 +116,11 @@ typedef struct DashSupport {
 
 
 
-
-
-// define the LED position in physical space,
-// relative to upper left of console,
-// in millimeters of offset rightward and downward
-// ... eventually
-typedef struct LEDPosition {
-  unsigned int x;
-  unsigned int y;
-} LEDPosition;
-
 // taking x/y from layout.jpg in pixels.
 // obviously those positions aren't real-world,
 // but they will help us find out whether any
 // effects based on position are compelling
-const LEDPosition ledPosition[NUM_DASH_LEDS] = {
+const struct LEDPosition ledPosition[NUM_DASH_LEDS] = {
   {2023,  551},  // tach0               00
   {2071,  435},  // tach1               01
   {2023,  321},  // tach2               02
