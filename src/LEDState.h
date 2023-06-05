@@ -266,6 +266,85 @@ public:
   }
 };
 
+// Simulate a position-based shimmer of the LEDs
+//
+// We will sweep an imaginary line across the LEDs in-situ, and based on their
+// distance to that imaginary line, we will light them proprotionally.
+class ShimmerState : public LEDState {
+public:
+  const struct LEDPosition m_pos;
+  const unsigned int m_shimmerDurationMs;  // this is how long we want the effect to take
+  const float m_distanceFactor;            // the bigger this is, the narrower the shimmer
+  const unsigned int m_shimmerSpeedFactor; // the bigger this is, the faster the shimmer goes across
+  const long m_initialHeight;              // the higher this is (negative scale), the longer the line takes to reach the LEDs
+  const float m_slope;                     // the slope of the imaginary line
+
+  // full featured constructor, for unit testing
+  ShimmerState(
+    const struct LEDPosition pos,
+    unsigned int shimmerDurationMs,
+    float distanceFactor,
+    unsigned int shimmerSpeedFactor,
+    long initialHeight,
+    double slope
+  ) :
+    LEDState(),
+    m_pos(pos),
+    m_shimmerDurationMs(shimmerDurationMs),
+    m_distanceFactor(distanceFactor),
+    m_shimmerSpeedFactor(shimmerSpeedFactor),
+    m_initialHeight(initialHeight),
+    m_slope(slope)
+  {}
+
+  // minimal constructor with actual defaults in use
+  ShimmerState(const struct LEDPosition pos) : ShimmerState(pos, 6500, 0.025, 8, -6000, 1) {}
+  // Slow motion for testing
+  // ShimmerState(const struct LEDPosition pos) : ShimmerState(pos, 65000, 0.025, 1, -4000, 1) {}
+
+  // this defines how sharply the brightness falls off with distance.
+  // we're using an inverse square law here.
+  inline unsigned int velVsDistance(unsigned long const &distance) const {
+    return max(0, 255 - pow(distance * m_distanceFactor, 2));
+  }
+
+  // control the sweep of the imaginary line
+  inline long animationPosition(unsigned long const &millis) const {
+    return (((millis - m_activationTimeMs) % m_shimmerDurationMs) * m_shimmerSpeedFactor);
+  }
+
+  // imaginary line moves with respect to time, from low X to high X
+  inline unsigned long linearDistance(unsigned long const &millis) const {
+    return abs(2000 + m_pos.x - animationPosition(millis));
+  }
+
+  // Imaginary line with a slope moves from high Y to low Y, but considers M and X
+  inline unsigned long distanceToLine(unsigned long const &millis) const {
+    const double m(m_slope);
+    long b = m_initialHeight + animationPosition(millis);
+
+    // https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+    return abs((m * m_pos.x) - m_pos.y + b) / sqrt((m * m_slope) + 1);
+  }
+
+  // get the vel as a function of time, which in turn is a function of distnace to imaginary line
+  inline unsigned int vel(unsigned long const &millis) const {
+    //return velVsDistance(linearDistance(millis));
+    return velVsDistance(distanceToLine(millis));
+  }
+
+  // before the pulse, go dark. during the pulse, go light. after the pulse, pick a new pulse time.
+  virtual void loop(struct CRGB* led, unsigned long const &millis) override {
+    *led = CHSV(0, 0, vel(millis));
+  }
+
+  // The state data
+  virtual String toStringWithParams(unsigned long const & millis) const override {
+    char ret[12];
+    sprintf(ret, "Shim  %04ld", millis % m_shimmerDurationMs);
+    return String(ret);
+  }
+};
 
 ////////////////////////////////////////////////////////////////////
 //
@@ -345,13 +424,15 @@ public:
   SolidColorState m_stOff;
   RainbowState m_stRainbow;
   SparkleState m_stSparkle;
+  ShimmerState m_stShimmer;
 
   BinkyLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) :
     StatefulLED(leds, ledPosition, numLEDs, index),
     m_stOn(COLOR_WHITE, FLASH_DURATION_MS / 10),
     m_stOff(COLOR_BLACK),
     m_stRainbow(numLEDs, index),
-    m_stSparkle()
+    m_stSparkle(),
+    m_stShimmer(ledPosition[index])
   {}
 
   // the master signal for rainbow modes override all others because they work as a group
@@ -361,6 +442,8 @@ public:
       return &m_stRainbow;
     case EffectMode::Values::sparkle:
       return &m_stSparkle;
+    case EffectMode::Values::shimmer:
+      return &m_stShimmer;
     default:
       return chooseNextLocalState(millis, slave);
     }
