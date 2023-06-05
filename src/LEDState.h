@@ -259,6 +259,14 @@ public:
 };
 
 
+////////////////////////////////////////////////////////////////////
+//
+// LED Behavior Types
+//
+// Individual states can be combined in some broad categories to define behaviors.
+// E.g. some lights blink sometimes, others directly indicate an input signal.
+//
+
 // This class defines an LED that can be in one of several states.
 // The states must be defined as member variables, and a chooseNextState function
 //   chooses which state to point to when it is time to find the next one.
@@ -270,7 +278,7 @@ public:
   const int m_index;   // the index of this LED within the strip, 0-indexed
 
   // construct with the LEDs structure (used by fastLED), the total number of LEDs, and the index into the array
-  StatefulLED(struct CRGB* leds, int numLEDs, int index) :
+  StatefulLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) :
     m_currentState(nullptr),
     m_leds(leds),
     m_numLEDs(numLEDs),
@@ -326,8 +334,8 @@ public:
   RainbowState m_stRainbow;
   SparkleState m_stSparkle;
 
-  BinkyLED(struct CRGB* leds, int numLEDs, int index) :
-    StatefulLED(leds, numLEDs, index),
+  BinkyLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) :
+    StatefulLED(leds, ledPosition, numLEDs, index),
     m_stOn(COLOR_WHITE, FLASH_DURATION_MS / 10),
     m_stOff(COLOR_BLACK),
     m_stRainbow(numLEDs, index),
@@ -351,20 +359,20 @@ public:
 };
 
 // A simple LED switches between a solid color mode (on/off) and a rainbow mode
-// the on/off criteria cna be overridden
+// the on/off criteria can be overridden
 class SimpleLED : public BinkyLED {
 public:
   SolidColorState m_stOff;
   SolidColorState m_stOn;
 
-  SimpleLED(struct CRGB* leds, int numLEDs, int index, const struct CHSV &color) :
-    BinkyLED(leds, numLEDs, index),
+  SimpleLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index, const struct CHSV &color) :
+    BinkyLED(leds, ledPosition, numLEDs, index),
     m_stOff(COLOR_BLACK),
     m_stOn(color)
   {}
 
-  SimpleLED(struct CRGB* leds, int numLEDs, int index, const struct CRGB &color) :
-    SimpleLED(leds, numLEDs, index, rgb2hsv_approximate(color))
+  SimpleLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index, const struct CRGB &color) :
+    SimpleLED(leds, ledPosition, numLEDs, index, rgb2hsv_approximate(color))
   {}
 
   // the master signal for rainbow mode overrides all others
@@ -379,7 +387,7 @@ public:
 // an illumination LED is the "vanilla" tone of the whole dash
 class IlluminationLED : public SimpleLED {
 public:
-  IlluminationLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_WHITE) {}
+  IlluminationLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : SimpleLED(leds, ledPosition, numLEDs, index, COLOR_WHITE) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "Illu"; };
@@ -388,7 +396,7 @@ public:
 // control of the AC LED
 class AirCondLED : public SimpleLED {
 public:
-  AirCondLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_BLUE) {}
+  AirCondLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : SimpleLED(leds, ledPosition, numLEDs, index, COLOR_BLUE) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "AC"; };
@@ -401,7 +409,7 @@ public:
 // control of the rear window heater LED
 class HeatedRearWindowLED : public SimpleLED {
 public:
-  HeatedRearWindowLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_YELLOW) {}
+  HeatedRearWindowLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : SimpleLED(leds, ledPosition, numLEDs, index, COLOR_YELLOW) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "Hrw"; };
@@ -414,7 +422,7 @@ public:
 // control of the rear window heater LED
 class HazardLED : public SimpleLED {
 public:
-  HazardLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_WHITE) {}
+  HazardLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : SimpleLED(leds, ledPosition, numLEDs, index, COLOR_WHITE) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "Haz"; };
@@ -427,7 +435,7 @@ public:
 // control of the rear window heater LED
 class RearFoggerLED : public SimpleLED {
 public:
-  RearFoggerLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_AMBER) {}
+  RearFoggerLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : SimpleLED(leds, ledPosition, numLEDs, index, COLOR_AMBER) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "Fog"; };
@@ -450,8 +458,8 @@ public:
   // note that even though the quiet states and the solid states are the same color,
   // the solid state can be interrupted at any time
 
-  MultiBlinkingLED(struct CRGB* leds, int numLEDs, int index) :
-    BinkyLED(leds, numLEDs, index),
+  MultiBlinkingLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) :
+    BinkyLED(leds, ledPosition, numLEDs, index),
     m_stSolid(COLOR_WHITE),
     m_stFlashRedLoud(COLOR_RED),
     m_stFlashRedQuiet(m_stSolid),
@@ -494,7 +502,7 @@ public:
 
 class BoostLED : public MultiBlinkingLED {
 public:
-  BoostLED(struct CRGB* leds, int numLEDs, int index) : MultiBlinkingLED(leds, numLEDs, index) {}
+  BoostLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : MultiBlinkingLED(leds, ledPosition, numLEDs, index) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "Bst"; };
@@ -509,7 +517,7 @@ public:
 
 class TachLED : public MultiBlinkingLED {
 public:
-  TachLED(struct CRGB* leds, int numLEDs, int index) : MultiBlinkingLED(leds, numLEDs, index) {}
+  TachLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : MultiBlinkingLED(leds, ledPosition, numLEDs, index) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "Tach"; };
