@@ -57,11 +57,19 @@ struct LEDPosition {
 // RGB is what the hardware expects.
 class LEDState {
 public:
+  unsigned long m_activationTimeMs;
+
+  // perform activation
+  void activate(unsigned long const &millis) {
+    m_activationTimeMs = millis;
+    activateLocal();
+  }
+
+  // perform any specific activation
+  virtual void activateLocal() { }
+
   // what to do with the LED in this state, on one tick
   virtual void loop(struct CRGB* led, unsigned long const &millis) = 0;
-
-  // perform any activation
-  virtual void activate(unsigned long const & /* millis */) { };
 
   // whether the state is expired.  by default, it's always time to reevaulate
   virtual bool isExpired(unsigned long const & /* millis */) const { return true; }
@@ -123,8 +131,8 @@ public:
   }
 
   // set the expiry clock when the state activates
-  virtual void activate(unsigned long const &millis) override {
-    m_expiryTimeMs = millis + m_lifetimeMs;
+  virtual void activateLocal() override {
+    m_expiryTimeMs = m_activationTimeMs + m_lifetimeMs;
   }
 
   // observe the expiry clock
@@ -312,10 +320,14 @@ public:
     return String(ret);
   }
 
+  // on each iteation, check if the state has expired and activate the next one if so
   void loop(unsigned long const &millis, const SlaveState &slave) {
     if (inInitialState() || m_currentState->isExpired(millis)) {
-      m_currentState = chooseNextState(millis, slave);
-      m_currentState->activate(millis);
+      LEDState* newState = chooseNextState(millis, slave);
+      if (newState != m_currentState) {
+        m_currentState = newState;
+        m_currentState->activate(millis);
+      }
     }
 
     m_currentState->loop(m_leds + m_index, millis); // "m_leds + index" is just "&m_leds[index]"
@@ -342,7 +354,7 @@ public:
     m_stSparkle()
   {}
 
-  // the master signal for rainbow mode overrides all others
+  // the master signal for rainbow modes override all others because they work as a group
   virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
     switch (slave.effectmode.state) {
     case EffectMode::Values::rainbow:
