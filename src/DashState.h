@@ -116,22 +116,11 @@ typedef struct DashSupport {
 
 
 
-
-
-// define the LED position in physical space,
-// relative to upper left of console,
-// in millimeters of offset rightward and downward
-// ... eventually
-typedef struct LEDPosition {
-  unsigned int x;
-  unsigned int y;
-} LEDPosition;
-
 // taking x/y from layout.jpg in pixels.
 // obviously those positions aren't real-world,
 // but they will help us find out whether any
 // effects based on position are compelling
-const LEDPosition ledPosition[NUM_DASH_LEDS] = {
+const struct LEDPosition ledPosition[NUM_DASH_LEDS] = {
   {2023,  551},  // tach0               00
   {2071,  435},  // tach1               01
   {2023,  321},  // tach2               02
@@ -196,39 +185,39 @@ typedef struct DashState {
   // can't declare an array of abstract classes, so declare an array
   // of pointers to those abstract classes.  hence the use of "new".
   StatefulLED* statefulLeds[NUM_DASH_LEDS] = {
-    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach0),
-    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach1),
-    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach2),
-    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach3),
-    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach4),
-    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach5),
-    new             TachLED(leds, NUM_DASH_LEDS, DashLED::Values::tach6),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::gauge1),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::gauge0),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::CAN),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::gauge3),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::gauge2),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed0),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed1),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed2),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed3),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed4),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed5),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::speed6),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::clock),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::oilDial),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::boostDial),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::voltsDial),
-    new            BoostLED(leds, NUM_DASH_LEDS, DashLED::Values::boostInd),
-    new          AirCondLED(leds, NUM_DASH_LEDS, DashLED::Values::airConditioningInd),
-    new HeatedRearWindowLED(leds, NUM_DASH_LEDS, DashLED::Values::heatedRearWindowInd),
-    new       RearFoggerLED(leds, NUM_DASH_LEDS, DashLED::Values::rearFogLightInd),
-    new           HazardLED(leds, NUM_DASH_LEDS, DashLED::Values::hazardInd),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::auxLight),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::heater0),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::heater1),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::windowSw1),
-    new     IlluminationLED(leds, NUM_DASH_LEDS, DashLED::Values::windowSw0)
+    new             TachLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::tach0),
+    new             TachLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::tach1),
+    new             TachLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::tach2),
+    new             TachLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::tach3),
+    new             TachLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::tach4),
+    new             TachLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::tach5),
+    new             TachLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::tach6),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::gauge1),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::gauge0),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::CAN),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::gauge3),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::gauge2),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::speed0),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::speed1),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::speed2),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::speed3),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::speed4),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::speed5),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::speed6),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::clock),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::oilDial),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::boostDial),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::voltsDial),
+    new            BoostLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::boostInd),
+    new          AirCondLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::airConditioningInd),
+    new HeatedRearWindowLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::heatedRearWindowInd),
+    new       RearFoggerLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::rearFogLightInd),
+    new           HazardLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::hazardInd),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::auxLight),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::heater0),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::heater1),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::windowSw1),
+    new     IlluminationLED(leds, ledPosition, NUM_DASH_LEDS, DashLED::Values::windowSw0)
   };
 
   // measure the time since the first measured time

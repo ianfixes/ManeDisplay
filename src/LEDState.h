@@ -37,6 +37,16 @@ const struct CRGB COLOR_YELLOW = CRGB::HTMLColorCode(CRGB::Yellow);
 const struct CRGB COLOR_BLUE   = CRGB::HTMLColorCode(CRGB::Blue);
 const struct CRGB COLOR_AMBER  = CRGB((uint32_t)0xFFBF00);
 
+
+// define the LED position in physical space,
+// relative to upper left of console,
+// in millimeters of offset rightward and downward
+// ... eventually
+struct LEDPosition {
+  unsigned int x;
+  unsigned int y;
+};
+
 // abstract class for an LED state.
 // the class's responsibility is to determine when it's OK to change state,
 // and to handle the LED behavior while in the state (based on the time and
@@ -47,11 +57,19 @@ const struct CRGB COLOR_AMBER  = CRGB((uint32_t)0xFFBF00);
 // RGB is what the hardware expects.
 class LEDState {
 public:
+  unsigned long m_activationTimeMs;
+
+  // perform activation
+  void activate(unsigned long const &millis) {
+    m_activationTimeMs = millis;
+    activateLocal();
+  }
+
+  // perform any specific activation
+  virtual void activateLocal() { }
+
   // what to do with the LED in this state, on one tick
   virtual void loop(struct CRGB* led, unsigned long const &millis) = 0;
-
-  // perform any activation
-  virtual void activate(unsigned long const & /* millis */) { };
 
   // whether the state is expired.  by default, it's always time to reevaulate
   virtual bool isExpired(unsigned long const & /* millis */) const { return true; }
@@ -113,8 +131,8 @@ public:
   }
 
   // set the expiry clock when the state activates
-  virtual void activate(unsigned long const &millis) override {
-    m_expiryTimeMs = millis + m_lifetimeMs;
+  virtual void activateLocal() override {
+    m_expiryTimeMs = m_activationTimeMs + m_lifetimeMs;
   }
 
   // observe the expiry clock
@@ -204,6 +222,137 @@ public:
   }
 };
 
+// Flash briefly and then wait a random amount of time.  Taken together, it's sparkly
+class SparkleState : public LEDState {
+public:
+  unsigned long m_canFlashMs;
+  const unsigned int m_sparkleDurationMs = 20;
+
+  SparkleState() : LEDState(), m_canFlashMs(0) {}
+
+  // on-time is in the future
+  inline bool beforeFlash(unsigned long const &millis) const {
+    return millis < m_canFlashMs;
+  }
+
+  // on-time and off-time have both elapsed
+  inline bool afterFlash(unsigned long const &millis) const {
+    return (m_canFlashMs + m_sparkleDurationMs) < millis;
+  }
+
+  // before the pulse, go dark. during the pulse, go light. after the pulse, pick a new pulse time.
+  virtual void loop(struct CRGB* led, unsigned long const &millis) override {
+    if (beforeFlash(millis)) {
+      *led = COLOR_BLACK;
+    } else if (afterFlash(millis)) {
+      m_canFlashMs = millis + m_sparkleDurationMs + random(FLASH_DURATION_MS * 5);
+    } else {
+      *led = COLOR_WHITE;
+    }
+  }
+
+  // The state data
+  virtual String toStringWithParams(unsigned long const & millis) const override {
+    char ret[12];
+    if (beforeFlash(millis)) {
+      sprintf(ret, "Sprk  %04ld", m_canFlashMs - millis);
+    } else if (afterFlash(millis)) {
+      sprintf(ret, "SPRK  ----");
+    } else {
+      sprintf(ret, "SPRK  %04ld", m_canFlashMs + m_sparkleDurationMs - millis);
+    }
+
+    return String(ret);
+  }
+};
+
+// Simulate a position-based shimmer of the LEDs
+//
+// We will sweep an imaginary line across the LEDs in-situ, and based on their
+// distance to that imaginary line, we will light them proprotionally.
+class ShimmerState : public LEDState {
+public:
+  const struct LEDPosition m_pos;
+  const unsigned int m_shimmerDurationMs;  // this is how long we want the effect to take
+  const float m_distanceFactor;            // the bigger this is, the narrower the shimmer
+  const unsigned int m_shimmerSpeedFactor; // the bigger this is, the faster the shimmer goes across
+  const long m_initialHeight;              // the higher this is (negative scale), the longer the line takes to reach the LEDs
+  const float m_slope;                     // the slope of the imaginary line
+
+  // full featured constructor, for unit testing
+  ShimmerState(
+    const struct LEDPosition pos,
+    unsigned int shimmerDurationMs,
+    float distanceFactor,
+    unsigned int shimmerSpeedFactor,
+    long initialHeight,
+    double slope
+  ) :
+    LEDState(),
+    m_pos(pos),
+    m_shimmerDurationMs(shimmerDurationMs),
+    m_distanceFactor(distanceFactor),
+    m_shimmerSpeedFactor(shimmerSpeedFactor),
+    m_initialHeight(initialHeight),
+    m_slope(slope)
+  {}
+
+  // minimal constructor with actual defaults in use
+  ShimmerState(const struct LEDPosition pos) : ShimmerState(pos, 6500, 0.025, 8, -6000, 1) {}
+  // Slow motion for testing
+  // ShimmerState(const struct LEDPosition pos) : ShimmerState(pos, 65000, 0.025, 1, -4000, 1) {}
+
+  // this defines how sharply the brightness falls off with distance.
+  // we're using an inverse square law here.
+  inline unsigned int velVsDistance(unsigned long const &distance) const {
+    return max(0, 255 - pow(distance * m_distanceFactor, 2));
+  }
+
+  // control the sweep of the imaginary line
+  inline long animationPosition(unsigned long const &millis) const {
+    return (((millis - m_activationTimeMs) % m_shimmerDurationMs) * m_shimmerSpeedFactor);
+  }
+
+  // imaginary line moves with respect to time, from low X to high X
+  inline unsigned long linearDistance(unsigned long const &millis) const {
+    return abs(2000 + m_pos.x - animationPosition(millis));
+  }
+
+  // Imaginary line with a slope moves from high Y to low Y, but considers M and X
+  inline unsigned long distanceToLine(unsigned long const &millis) const {
+    const double m(m_slope);
+    long b = m_initialHeight + animationPosition(millis);
+
+    // https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+    return abs((m * m_pos.x) - m_pos.y + b) / sqrt((m * m_slope) + 1);
+  }
+
+  // get the vel as a function of time, which in turn is a function of distnace to imaginary line
+  inline unsigned int vel(unsigned long const &millis) const {
+    //return velVsDistance(linearDistance(millis));
+    return velVsDistance(distanceToLine(millis));
+  }
+
+  // before the pulse, go dark. during the pulse, go light. after the pulse, pick a new pulse time.
+  virtual void loop(struct CRGB* led, unsigned long const &millis) override {
+    *led = CHSV(0, 0, vel(millis));
+  }
+
+  // The state data
+  virtual String toStringWithParams(unsigned long const & millis) const override {
+    char ret[12];
+    sprintf(ret, "Shim  %04ld", millis % m_shimmerDurationMs);
+    return String(ret);
+  }
+};
+
+////////////////////////////////////////////////////////////////////
+//
+// LED Behavior Types
+//
+// Individual states can be combined in some broad categories to define behaviors.
+// E.g. some lights blink sometimes, others directly indicate an input signal.
+//
 
 // This class defines an LED that can be in one of several states.
 // The states must be defined as member variables, and a chooseNextState function
@@ -216,7 +365,7 @@ public:
   const int m_index;   // the index of this LED within the strip, 0-indexed
 
   // construct with the LEDs structure (used by fastLED), the total number of LEDs, and the index into the array
-  StatefulLED(struct CRGB* leds, int numLEDs, int index) :
+  StatefulLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) :
     m_currentState(nullptr),
     m_leds(leds),
     m_numLEDs(numLEDs),
@@ -250,10 +399,14 @@ public:
     return String(ret);
   }
 
+  // on each iteation, check if the state has expired and activate the next one if so
   void loop(unsigned long const &millis, const SlaveState &slave) {
     if (inInitialState() || m_currentState->isExpired(millis)) {
-      m_currentState = chooseNextState(millis, slave);
-      m_currentState->activate(millis);
+      LEDState* newState = chooseNextState(millis, slave);
+      if (newState != m_currentState) {
+        m_currentState = newState;
+        m_currentState->activate(millis);
+      }
     }
 
     m_currentState->loop(m_leds + m_index, millis); // "m_leds + index" is just "&m_leds[index]"
@@ -270,29 +423,27 @@ public:
   SolidColorTimedState m_stOn;
   SolidColorState m_stOff;
   RainbowState m_stRainbow;
-  unsigned long m_canFlashMs;
+  SparkleState m_stSparkle;
+  ShimmerState m_stShimmer;
 
-  BinkyLED(struct CRGB* leds, int numLEDs, int index) :
-    StatefulLED(leds, numLEDs, index),
+  BinkyLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) :
+    StatefulLED(leds, ledPosition, numLEDs, index),
     m_stOn(COLOR_WHITE, FLASH_DURATION_MS / 10),
     m_stOff(COLOR_BLACK),
     m_stRainbow(numLEDs, index),
-    m_canFlashMs(0)
+    m_stSparkle(),
+    m_stShimmer(ledPosition[index])
   {}
 
-  // the master signal for rainbow mode overrides all others
+  // the master signal for rainbow modes override all others because they work as a group
   virtual LEDState* chooseNextState(unsigned long const &millis, const SlaveState &slave) {
     switch (slave.effectmode.state) {
     case EffectMode::Values::rainbow:
       return &m_stRainbow;
     case EffectMode::Values::sparkle:
-      if (millis < m_canFlashMs) {
-        return &m_stOff;
-      } else {
-        // update the random time that the LED will be unlit
-        m_canFlashMs = millis + (FLASH_DURATION_MS * 2) + random(FLASH_DURATION_MS * 4);
-        return &m_stOn;
-      }
+      return &m_stSparkle;
+    case EffectMode::Values::shimmer:
+      return &m_stShimmer;
     default:
       return chooseNextLocalState(millis, slave);
     }
@@ -303,20 +454,20 @@ public:
 };
 
 // A simple LED switches between a solid color mode (on/off) and a rainbow mode
-// the on/off criteria cna be overridden
+// the on/off criteria can be overridden
 class SimpleLED : public BinkyLED {
 public:
   SolidColorState m_stOff;
   SolidColorState m_stOn;
 
-  SimpleLED(struct CRGB* leds, int numLEDs, int index, const struct CHSV &color) :
-    BinkyLED(leds, numLEDs, index),
+  SimpleLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index, const struct CHSV &color) :
+    BinkyLED(leds, ledPosition, numLEDs, index),
     m_stOff(COLOR_BLACK),
     m_stOn(color)
   {}
 
-  SimpleLED(struct CRGB* leds, int numLEDs, int index, const struct CRGB &color) :
-    SimpleLED(leds, numLEDs, index, rgb2hsv_approximate(color))
+  SimpleLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index, const struct CRGB &color) :
+    SimpleLED(leds, ledPosition, numLEDs, index, rgb2hsv_approximate(color))
   {}
 
   // the master signal for rainbow mode overrides all others
@@ -331,7 +482,7 @@ public:
 // an illumination LED is the "vanilla" tone of the whole dash
 class IlluminationLED : public SimpleLED {
 public:
-  IlluminationLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_WHITE) {}
+  IlluminationLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : SimpleLED(leds, ledPosition, numLEDs, index, COLOR_WHITE) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "Illu"; };
@@ -340,7 +491,7 @@ public:
 // control of the AC LED
 class AirCondLED : public SimpleLED {
 public:
-  AirCondLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_BLUE) {}
+  AirCondLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : SimpleLED(leds, ledPosition, numLEDs, index, COLOR_BLUE) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "AC"; };
@@ -353,7 +504,7 @@ public:
 // control of the rear window heater LED
 class HeatedRearWindowLED : public SimpleLED {
 public:
-  HeatedRearWindowLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_YELLOW) {}
+  HeatedRearWindowLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : SimpleLED(leds, ledPosition, numLEDs, index, COLOR_YELLOW) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "Hrw"; };
@@ -366,7 +517,7 @@ public:
 // control of the rear window heater LED
 class HazardLED : public SimpleLED {
 public:
-  HazardLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_WHITE) {}
+  HazardLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : SimpleLED(leds, ledPosition, numLEDs, index, COLOR_WHITE) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "Haz"; };
@@ -379,7 +530,7 @@ public:
 // control of the rear window heater LED
 class RearFoggerLED : public SimpleLED {
 public:
-  RearFoggerLED(struct CRGB* leds, int numLEDs, int index) : SimpleLED(leds, numLEDs, index, COLOR_AMBER) {}
+  RearFoggerLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : SimpleLED(leds, ledPosition, numLEDs, index, COLOR_AMBER) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "Fog"; };
@@ -402,8 +553,8 @@ public:
   // note that even though the quiet states and the solid states are the same color,
   // the solid state can be interrupted at any time
 
-  MultiBlinkingLED(struct CRGB* leds, int numLEDs, int index) :
-    BinkyLED(leds, numLEDs, index),
+  MultiBlinkingLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) :
+    BinkyLED(leds, ledPosition, numLEDs, index),
     m_stSolid(COLOR_WHITE),
     m_stFlashRedLoud(COLOR_RED),
     m_stFlashRedQuiet(m_stSolid),
@@ -446,7 +597,7 @@ public:
 
 class BoostLED : public MultiBlinkingLED {
 public:
-  BoostLED(struct CRGB* leds, int numLEDs, int index) : MultiBlinkingLED(leds, numLEDs, index) {}
+  BoostLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : MultiBlinkingLED(leds, ledPosition, numLEDs, index) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "Bst"; };
@@ -461,7 +612,7 @@ public:
 
 class TachLED : public MultiBlinkingLED {
 public:
-  TachLED(struct CRGB* leds, int numLEDs, int index) : MultiBlinkingLED(leds, numLEDs, index) {}
+  TachLED(struct CRGB* leds, const struct LEDPosition* ledPosition, int numLEDs, int index) : MultiBlinkingLED(leds, ledPosition, numLEDs, index) {}
 
   // string representation of the state name
   inline virtual String name() const override { return "Tach"; };

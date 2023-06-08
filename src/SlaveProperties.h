@@ -12,41 +12,17 @@ typedef struct EffectMode {
     none    = 0,
     rainbow = 1,
     sparkle = 2,
+    shimmer = 3
   };
 
   Values state;
 
-  EffectMode() {
-    state = none;
-  }
-
-  EffectMode(Values v) {
-    state = v;
-  }
-
-  inline int maxValue() const {
-    return Values::sparkle;
-  }
-
-  inline int isEffect() const {
-    return state != Values::none;
-  }
-
-  inline void next() {
-    if (state >= maxValue()) {
-      state = Values::none;
-    } else {
-      state = (Values)((int)state + 1);
-    }
-  }
-
-  // select the next mode, effect modes only
-  inline void nextEffect() {
-    do {
-      next();
-    } while (!isEffect());
-  }
-
+  EffectMode() { state = none; }
+  EffectMode(Values v) { state = v; }
+  inline int maxValue() const { return Values::shimmer; }
+  inline int isEffect() const { return state != Values::none; }
+  inline void next() { state = (state >= maxValue()) ? Values::none : (Values)((int)state + 1); }
+  inline void nextEffect() { do { next(); } while (!isEffect()); } // select the next mode, effect modes only
 } EffectMode;
 
 /**
